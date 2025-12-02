@@ -205,3 +205,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+/screenshot.png
+.idea/inspectionProfiles/Project_Default.xml
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/vcs.xml
+.idea/modules.xml
+.idea/misc.xml
+.idea/prompt-test-agent.iml
+.idea/.gitignore
