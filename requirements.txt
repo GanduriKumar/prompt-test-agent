@@ -12,3 +12,6 @@ certifi~=2025.11.12
 
 # Python-certifi-win32 is a Windows-specific package that provides the same functionality as certifi for Windows users.
 python-certifi-win32~=1.6.1
+
+# Requests is a simple and elegant HTTP library for Python, making it easy to send HTTP requests.
+requests~=2.32.5
