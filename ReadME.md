@@ -47,7 +47,7 @@ This tool analyzes your web application and automatically generates:
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/KumarGN/prompt-test-agent.git
+git clone https://github.com/GanduriKumar/prompt-test-agent.git
 cd prompt-test-agent
 
 # 2. Install dependencies
@@ -1367,8 +1367,8 @@ MIT License - see [`LICENSE`](LICENSE) file
 
 ## 👤 Author
 
-**KumarGN**
-- GitHub: [@KumarGN](https://github.com/KumarGN)
+**GanduriKumar**
+- GitHub: [@GanduriKumar](https://github.com/GanduriKumar)
 
 ---
 
@@ -1392,7 +1392,7 @@ MIT License - see [`LICENSE`](LICENSE) file
 
 **Made with ❤️ by KumarGN**
 
-[Report Bug](https://github.com/KumarGN/prompt-test-agent/issues) • [Request Feature](https://github.com/KumarGN/prompt-test-agent/issues) • [Documentation](https://github.com/KumarGN/prompt-test-agent)
+[Report Bug](https://github.com/GanduriKumar/prompt-test-agent/issues) • [Request Feature](https://github.com/GanduriKumar/prompt-test-agent/issues) • [Documentation](https://github.com/GanduriKumar/prompt-test-agent)
 
 ---
 
