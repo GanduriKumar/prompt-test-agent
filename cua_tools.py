@@ -505,7 +505,7 @@ You are given a list of interactive elements on this page in JSON:
 
 1. Identify forms, input fields, buttons, and links.
 2. Infer likely user intents (e.g., login, registration, search, filter, submit form).
-3. Design a set of FUNCTIONAL test cases that validate:
+3. Design a detailed set of FUNCTIONAL test cases that validate:
    - Happy path
    - Negative cases (invalid formats, required-field validations)
    - Boundary scenarios where applicable (e.g., max length, special chars)
@@ -546,8 +546,13 @@ async def generate_functional_tests(url: str, business_context: str):
     """
     elements = await get_interactive_elements(url)
     prompt = build_functional_tests_prompt(url, elements, business_context)
+    logging.debug("Generating functional tests with prompt")
     raw = generate_final_output(prompt)
-
+    logging.debug(f"Func Raw Output: {raw}")
+    raw = raw.replace("'''", "")
+    raw = raw.replace('```json', '')
+    raw = raw.replace('```', '')
+    logging.debug(f"Functional Raw Output: {raw}")
     test_spec = json.loads(raw) # will raise if JSON is bad – good for catching prompt issues
     return test_spec["functional"]
 
@@ -571,7 +576,13 @@ async def generate_nfr_tests(url: str, business_context: str, nfr_expectations=N
     """
     elements = await get_interactive_elements(url)
     prompt = build_nfr_tests_prompt(url, elements, business_context, nfr_expectations)
+    logging.debug("Generating NFR tests with prompt")
     raw = generate_final_output(prompt)
+    logging.debug(f"NFR Raw Output: {raw}")
+    raw = raw.replace("'''", "")
+    raw = raw.replace('```json', '')
+    raw = raw.replace('```', '')
+    logging.debug(f"NFR Raw Output: {raw}")
     test_spec = json.loads(raw)
     return test_spec["nfr"]
 
@@ -601,5 +612,8 @@ def generate_final_output(prompt: str) -> str:
     }
     resp = requests.post(f"{OLLAMA_HOST}/api/generate", json=payload)
     resp.raise_for_status()
+    
     data = resp.json()
+    # logging.debug(f"Final output response data: {data}")
+    
     return data.get("response", "")
