@@ -1134,33 +1134,45 @@ def build_nfr_tests_prompt(
     elems_json = json.dumps(elements[:20], separators=(',', ':'))  # Limit to first 20 elements
     expectations_json = json.dumps(nfr_expectations or {}, separators=(',', ':'))
     
-    return f"""You are an expert QA architect specializing in non-functional testing.
+    return f"""You are an expert QA architect specializing in comprehensive non-functional testing.
 
 Application under test:
 - URL: {url}
 - Business context: {business_context}
 
-Interactive elements (first 20): {elems_json}
+Interactive elements (all elements): {elems_json}
 
 Known NFR expectations: {expectations_json}
 
-Design NON-FUNCTIONAL test cases covering performance, reliability, security, usability, and accessibility.
+Design EXHAUSTIVE NON-FUNCTIONAL test cases covering:
+1. Performance (load time, response time, throughput, resource usage, scalability, caching)
+2. Reliability (uptime, error recovery, failover, data integrity, consistency, resilience)
+3. Security (authentication, authorization, encryption, injection prevention, XSS, CSRF, rate limiting, data protection)
+4. Usability (UI/UX, navigation, error messages, form validation feedback, accessibility of error states)
+5. Accessibility (WCAG 2.1 compliance, screen readers, keyboard navigation, color contrast, focus management)
+6. Compliance (GDPR, data retention, audit trails, regulatory requirements)
+7. Maintainability (code quality, technical debt, documentation, monitoring)
+8. Portability (cross-browser compatibility, mobile responsiveness, different OS support)
+
+Generate EXHAUSTIVE and DIVERSE test cases covering all above categories with multiple scenarios per category.
 
 OUTPUT FORMAT (JSON only):
 {{
   "nfr": [
     {{
       "id": "NFR_001",
-      "category": "performance",
-      "title": "Page loads within 2 seconds",
-      "description": "What the test does...",
-      "acceptance_criteria": ["criterion 1", "criterion 2"],
-      "tooling_suggestions": ["tool1", "tool2"]
+      "category": "performance|reliability|security|usability|accessibility|compliance|maintainability|portability",
+      "title": "Clear, specific test title",
+      "description": "Detailed description of what the test validates",
+      "acceptance_criteria": ["criterion 1", "criterion 2", "criterion 3"],
+      "tooling_suggestions": ["tool1", "tool2", "tool3"],
+      "priority": "high|medium|low",
+      "risk_level": "high|medium|low"
     }}
   ]
 }}
 
-No explanations outside JSON."""
+Generate comprehensive, exhaustive, and diverse test cases. Aim for at least 50+ test cases covering all categories thoroughly. No explanations outside JSON."""
 
 
 def build_functional_tests_prompt(
@@ -1243,7 +1255,7 @@ def build_functional_tests_prompt(
         - Acceptance criteria definition
         
     Limitations:
-        - Limited to first 20 elements (may miss critical UI)
+        - Cover all elements (may miss critical UI)
         - Relies on AI model knowledge of testing best practices
         - JSON output quality depends on model capability
         - No validation of generated test feasibility
@@ -1254,13 +1266,25 @@ def build_functional_tests_prompt(
     # Use compact JSON and limit elements
     elems_json = json.dumps(elements[:20], separators=(',', ':'))
     
-    return f"""You are an expert software test engineer.
+    return f"""You are an expert software test engineer specializing in comprehensive test coverage.
 
 Application: {url}
 Context: {business_context}
-Interactive elements (first 20): {elems_json}
+Interactive elements (fall elements): {elems_json}
 
-Design FUNCTIONAL test cases covering happy path, negative cases, boundaries, and navigation.
+Design EXHAUSTIVE FUNCTIONAL test cases covering:
+1. Happy path scenarios (normal user workflows)
+2. Negative cases (invalid inputs, error handling)
+3. Boundary conditions (min/max values, empty fields, special characters)
+4. Navigation flows (page transitions, deep links, back button)
+5. Data validation (format validation, type checking)
+6. State management (session handling, caching, data persistence)
+7. Error recovery (network failures, timeouts, retry logic)
+8. Security scenarios (input sanitization, XSS prevention, CSRF protection)
+9. Accessibility workflows (keyboard navigation, screen reader compatibility)
+10. Performance considerations (load times, responsiveness under load)
+
+Generate EXHAUSTIVE diverse test cases covering all above categories.
 
 OUTPUT FORMAT (JSON only):
 {{
@@ -1268,15 +1292,17 @@ OUTPUT FORMAT (JSON only):
     {{
       "id": "FUNC_001",
       "title": "Clear title",
-      "preconditions": ["list"],
-      "steps": ["step 1", "step 2"],
+      "category": "happy_path|negative|boundary|navigation|validation|state|recovery|security|accessibility|performance",
+      "preconditions": ["list of prerequisites"],
+      "steps": ["detailed step 1", "detailed step 2", "step 3"],
       "expected_result": "Expected outcome",
-      "tags": ["tag1", "tag2"]
+      "tags": ["tag1", "tag2"],
+      "priority": "high|medium|low"
     }}
   ]
 }}
 
-No explanations outside JSON."""
+Generate comprehensive and exhaustive test cases. No explanations outside JSON."""
 
 
 async def generate_functional_tests(url: str, business_context: str) -> List[Dict]:

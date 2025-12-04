@@ -59,7 +59,7 @@ Prompt Test Agent analyzes your web application and **automatically generates co
 
 ```bash
 # Step 1: Clone the repository
-git clone https://github.com/KumarGN/prompt-test-agent.git
+git clone https://github.com/GanduriKumar/prompt-test-agent.git
 cd prompt-test-agent
 
 # Step 2: Install Python dependencies
@@ -1363,8 +1363,8 @@ MIT License - see [LICENSE](LICENSE) file
 ## 👤 Author
 
 **Kumar GN**
-- GitHub: [@KumarGN](https://github.com/KumarGN)
-- Repository: [prompt-test-agent](https://github.com/KumarGN/prompt-test-agent)
+- GitHub: [@GanduriKumar](https://github.com/GanduriKumar)
+- Repository: [prompt-test-agent](https://github.com/GanduriKumar/prompt-test-agent)
 
 ---
 
@@ -1417,9 +1417,9 @@ MIT License - see [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Made with ❤️ by KumarGN**
+**Made with ❤️ by Kumar GN**
 
-[Report Bug](https://github.com/KumarGN/prompt-test-agent/issues) • [Request Feature](https://github.com/KumarGN/prompt-test-agent/issues) • [Discussions](https://github.com/KumarGN/prompt-test-agent/discussions)
+[Report Bug](https://github.com/GanduriKumar/prompt-test-agent/issues) • [Request Feature](https://github.com/GanduriKumar/prompt-test-agent/issues) • [Discussions](https://github.com/GanduriKumar/prompt-test-agent/discussions)
 
 ---
 
