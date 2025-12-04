@@ -1,38 +1,35 @@
-import logging, asyncio
-from cua_tools import encode_file_to_base64, extract_elements_from_image, open_browser_capture_screen, generate_automation_code, execute_automation_code
+import asyncio, logging, json
+from playwright.async_api import async_playwright
 
-async def main():
-    # Configure logging to display debug messages with timestamps
-    logging.basicConfig(
-        level=logging.DEBUG,  # Show DEBUG and above
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        force=True  # Override any previous logging config
-    )
+from cua_tools import get_interactive_elements, build_nfr_tests_prompt, build_functional_tests_prompt, generate_functional_tests, generate_final_output, generate_nfr_tests
 
-    # USER INPUT: Prompt the user to enter a target URL for web page analysis
-    url = input("Enter the URL to open: ")
-    logging.debug(f"Opening URL: {url}")  # Log the URL being opened
+# Configure logging to display debug-level messages with timestamps
+logging.basicConfig(
+    level=logging.DEBUG,  # Show DEBUG and above
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    force=True  # Override any previous logging config
+)
 
-    # SCREENSHOT CAPTURE: Open the specified URL in a browser and capture a screenshot
-    # The screenshot will be saved as "screenshot.png" in the current directory
-    await open_browser_capture_screen(url, "screenshot.png")
-    logging.debug(f"Screenshot saved as screenshot.png")  # Log the action of saving the screenshot
+# Prompt user for the target URL to analyze
+url = input("Enter the URL to open: ")
+logging.debug(f"Opening URL: {url}")
 
-    # Encode the captured screenshot image to base64 format for processing
-    encoded_image = encode_file_to_base64("screenshot.png")
-    
-    # Extract elements from the encoded image, returning a dictionary of elements
-    elements_dict = extract_elements_from_image(encoded_image)
-    logging.debug(f"Extracted Elements: {elements_dict}")  # Log the extracted elements
+# Generate functional test cases based on the provided URL and business context
+# Uses async execution to interact with the web page and extract testable elements
+functional_tests = asyncio.run(generate_functional_tests(url=url, business_context="Search website"))
+logging.info(f"Generated Functional Tests: {functional_tests}")
 
-    # Generate automation code based on the extracted elements
-    action_code = generate_automation_code(elements_dict,url)
-    logging.debug(f"Generated Automation Code: {action_code}")  # Log the generated automation code
+# Generate non-functional requirement (NFR) tests such as performance, accessibility, etc.
+# Also uses async execution for web page analysis
+nfr_tests = asyncio.run(generate_nfr_tests(url=url, business_context="Search website"))
+logging.info(f"Generated NFR Tests: {nfr_tests}")
 
-    # Execute the generated automation code on the specified URL
-    await execute_automation_code(action_code, url)
+# Combine both test types into a single dictionary structure
+all_tests = {
+    "functional_tests": functional_tests,
+    "nfr_tests": nfr_tests
+}
 
-if __name__ == "__main__":
-    # Run the main function in an asyncio event loop
-    asyncio.run(main())
-
+# Write the generated tests to a JSON file for later use or review
+with open("generated_tests.json", "w") as f:
+    json.dump(all_tests, f, indent=2)

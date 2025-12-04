@@ -1,543 +1,1173 @@
 # Prompt Test Agent
 
-A Python-based intelligent web automation framework that combines Playwright browser automation with Ollama AI models for vision-based UI element extraction and autonomous test generation.
+> **AI-powered test generation framework that automatically creates comprehensive test suites from any web page using local AI models.**
 
-## Overview
+[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Playwright](https://img.shields.io/badge/Playwright-1.56-green.svg)](https://playwright.dev/)
 
-This project provides an AI-powered automation agent that can:
-- **Capture** web page screenshots using Playwright
-- **Analyze** UI elements using vision-capable AI models (Ollama)
-- **Generate** automation code dynamically based on detected elements
-- **Execute** generated automation scripts autonomously
+## 🎯 What Does This Do?
 
-## Features
+This tool analyzes your web application and automatically generates:
+- ✅ **Functional test cases** - Happy paths, negative cases, boundary conditions
+- ⚡ **Performance tests** - Load time, response time, throughput benchmarks
+- 🔒 **Security tests** - Authentication, input validation, OWASP checks
+- ♿ **Accessibility tests** - WCAG compliance, keyboard navigation, ARIA
+- 🎨 **Usability tests** - Form design, error messages, user experience
+- 🛡️ **Reliability tests** - Error handling, resilience, failover
 
-- 🌐 Async browser control with Playwright Chromium
-- 📸 Full-page screenshot capture with configurable viewport (1280x720)
-- 👁️ Vision-based UI element extraction using Ollama multimodal models
-- 🤖 AI-powered automation code generation
-- ⚡ Dynamic code execution engine
-- 🔍 HTML element detection (tag, id, class, text)
-- 📝 Natural language instruction processing
-- 🎯 Non-headless browser mode for visual debugging
-- 🔐 Environment-based configuration management
-- 📊 Comprehensive debug logging
+**No manual test writing** - Just provide a URL and business context, get JSON test specifications.
 
-## Project Structure
+---
 
+## 📋 Table of Contents
+
+1. [Quick Start](#-quick-start)
+2. [Installation](#-installation)
+3. [Usage Examples](#-usage-examples)
+4. [Configuration](#-configuration)
+5. [Project Architecture](#-project-architecture)
+6. [Generated Output](#-generated-output)
+7. [API Reference](#-api-reference)
+8. [Troubleshooting](#-troubleshooting)
+9. [Contributing](#-contributing)
+10. [FAQ](#-faq)
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites Checklist
+- [ ] Python 3.8 or higher installed
+- [ ] [Ollama](https://ollama.ai/) installed and running
+- [ ] Three AI models downloaded (3 commands below)
+- [ ] 10GB free disk space (for AI models)
+
+### 5-Minute Setup
+
+```bash
+# 1. Clone repository
+git clone https://github.com/KumarGN/prompt-test-agent.git
+cd prompt-test-agent
+
+# 2. Install dependencies
+pip install -r requirements.txt
+playwright install chromium
+
+# 3. Start Ollama (keep terminal open)
+ollama serve
+
+# 4. Download AI models (in new terminal)
+ollama pull llama3.2              # Text model (~2GB)
+ollama pull llama3.2-vision       # Vision model (~2GB)
+ollama pull deepseek-coder:6.7b   # Code model (~4GB)
+
+# 5. Create configuration
+cat > .env << EOF
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+VISION_MODEL=llama3.2-vision
+CODING_MODEL=deepseek-coder:6.7b
+EOF
+
+# 6. Run test generator
+python cua_agent.py
 ```
-.
-├── cua_agent.py           # Main autonomous agent orchestrator
-├── cua_tools.py          # Core toolkit: browser, vision, code generation
-├── requirements.txt      # Python dependencies
-├── LICENSE               # MIT License
-├── ReadME.md            # Project documentation
-├── .env                 # Environment configuration (not tracked)
-├── .gitignore          # Git ignore rules
-├── __pycache__/        # Python bytecode cache (not tracked)
-└── .idea/              # PyCharm IDE configuration
-    ├── .gitignore
-    ├── misc.xml
-    ├── modules.xml
-    ├── prompt-test-agent.iml
-    ├── vcs.xml
-    ├── workspace.xml
-    └── inspectionProfiles/
-        ├── profiles_settings.xml
-        └── Project_Default.xml
+
+**First Run Output:**
+```
+Enter the URL to open: https://example.com
+2025-01-15 10:30:45 - DEBUG - Opening URL: https://example.com
+2025-01-15 10:30:47 - DEBUG - Extracting interactive elements
+2025-01-15 10:30:49 - INFO - Generated 8 Functional Tests
+2025-01-15 10:30:52 - INFO - Generated 12 NFR Tests
+Tests saved to: generated_tests.json
 ```
 
-## Prerequisites
+---
 
-- Python 3.8 or higher
-- [Ollama](https://ollama.ai/) installed and running locally
-- Vision-capable Ollama model (e.g., `llava`, `bakllava`, `llama3.2-vision`)
-- Chromium browser (installed via Playwright)
-- Windows OS (for `python-certifi-win32` support, optional for other platforms)
+## 📦 Installation
 
-## Installation
+### Step 1: System Requirements
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/KumarGN/prompt-test-agent.git
-   cd prompt-test-agent
-   ```
+**Operating System:**
+- Windows 10/11
+- macOS 10.15+
+- Linux (Ubuntu 20.04+, Debian 11+)
 
-2. **Install Python dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+**Python Version:**
+```bash
+python --version  # Should be 3.8 or higher
+```
 
-3. **Install Playwright browsers:**
-   ```bash
-   playwright install chromium
-   ```
+**Disk Space:**
+- ~200MB for dependencies
+- ~10GB for AI models
+- ~500MB for Playwright browsers
 
-4. **Configure environment variables:**
-   Create a `.env` file in the project root:
-   ```env
-   # Base URL for Ollama server
-   OLLAMA_BASE_URL=http://localhost:11434
-   
-   # Model for code generation (text-based)
-   OLLAMA_MODEL=llama3.2
-   
-   # Model for vision/image analysis
-   VISION_MODEL=llama3.2-vision
-   ```
+### Step 2: Install Python Dependencies
 
-5. **Verify Ollama is running:**
-   ```bash
-   ollama serve
-   ```
+```bash
+pip install -r requirements.txt
+```
 
-6. **Download required models:**
-   ```bash
-   ollama pull llama3.2
-   ollama pull llama3.2-vision
-   ```
+**Installed packages:**
+- `playwright~=1.56.0` - Browser automation (like Selenium but faster/more reliable)
+- `requests~=2.32.5` - HTTP client for Ollama API communication
+- `python-dotenv~=1.2.1` - Loads `.env` configuration files
+- `certifi~=2025.11.12` - SSL certificate bundle (for HTTPS requests)
+- `python-certifi-win32~=1.6.1` - Windows SSL support
+- `ollama~=0.6.1` - Python client for Ollama (not actively used, can be removed)
 
-## Usage
+### Step 3: Install Browser
 
-### Autonomous Agent Mode (Main)
+```bash
+playwright install chromium
+```
 
-Run the intelligent automation agent:
+Downloads Chromium browser (~170MB) used for:
+- Opening web pages
+- Extracting interactive elements
+- Taking screenshots (if needed)
+- Running generated automation code
+
+### Step 4: Setup Ollama
+
+**Install Ollama:**
+
+| Platform | Command |
+|----------|---------|
+| macOS/Linux | `curl -fsSL https://ollama.ai/install.sh \| sh` |
+| Windows | Download from [ollama.ai/download](https://ollama.ai/download) |
+
+**Start Ollama Server:**
+```bash
+ollama serve
+```
+Leave this terminal running. Ollama listens on `http://localhost:11434`
+
+**Download AI Models:**
+```bash
+# Text model for test generation
+ollama pull llama3.2
+
+# Vision model for screenshot analysis (optional)
+ollama pull llama3.2-vision
+
+# Code model for automation generation
+ollama pull deepseek-coder:6.7b
+```
+
+**Verify installation:**
+```bash
+ollama list
+# Should show: llama3.2, llama3.2-vision, deepseek-coder:6.7b
+```
+
+### Step 5: Configure Environment
+
+Create `.env` file in project root:
+```env
+# Ollama server URL (default localhost)
+OLLAMA_BASE_URL=http://localhost:11434
+
+# Model names (must match 'ollama list' output)
+OLLAMA_MODEL=llama3.2
+VISION_MODEL=llama3.2-vision
+CODING_MODEL=deepseek-coder:6.7b
+```
+
+**Note:** `.env` file is git-ignored for security.
+
+---
+
+## 💡 Usage Examples
+
+### Example 1: Generate Tests for Login Page
 
 ```bash
 python cua_agent.py
 ```
 
-**Automated Workflow:**
-1. Enter the target URL when prompted
-2. Agent captures full-page screenshot
-3. Vision model extracts UI elements (inputs, buttons, etc.)
-4. Code generation model creates Playwright automation code
-5. Generated code is executed automatically
-6. All steps are logged with DEBUG level detail
-
-**Example Session:**
+**Interactive Session:**
 ```
-Enter the URL to open: https://example.com/login
-2025-01-15 10:30:45 - DEBUG - Opening URL: https://example.com/login
-2025-01-15 10:30:47 - DEBUG - Screenshot saved as screenshot.png
-2025-01-15 10:30:48 - DEBUG - Encoding file screenshot.png to base64
-2025-01-15 10:30:49 - DEBUG - Extracting elements from encoded image
-2025-01-15 10:30:52 - DEBUG - Extracted Elements: [{"tag": "input", "id": "email", ...}]
-2025-01-15 10:30:53 - DEBUG - Generating automation code for vision elements
-2025-01-15 10:30:56 - DEBUG - Generated Automation Code: async def run()...
-2025-01-15 10:30:57 - DEBUG - Executing automation code
+Enter the URL to open: https://myapp.com/login
+2025-01-15 10:30:45 - DEBUG - Opening URL: https://myapp.com/login
+2025-01-15 10:30:47 - DEBUG - Extracting interactive elements
+2025-01-15 10:30:48 - DEBUG - Found 6 interactive elements
+2025-01-15 10:30:49 - DEBUG - Generating functional tests
+2025-01-15 10:30:55 - INFO - Generated Functional Tests: 8 tests
+2025-01-15 10:30:56 - DEBUG - Generating NFR tests
+2025-01-15 10:31:02 - INFO - Generated NFR Tests: 12 tests
+Tests saved to generated_tests.json
 ```
 
-### Programmatic Usage
+**Time:** 30-60 seconds total
 
-#### Example 1: Vision-Based Element Extraction
+**Output:** `generated_tests.json` with 8 functional + 12 NFR test specifications
+
+---
+
+### Example 2: Programmatic Test Generation
+
+**Use Case:** Integrate into CI/CD pipeline
+
+```python
+# test_generator.py
+import asyncio
+from cua_tools import generate_functional_tests, generate_nfr_tests
+
+async def generate_tests_for_url(url, context):
+    """Generate all tests for a given URL."""
+    print(f"Analyzing: {url}")
+    
+    # Generate functional tests
+    func_tests = await generate_functional_tests(url, context)
+    print(f"✅ {len(func_tests)} functional tests")
+    
+    # Generate NFR tests with requirements
+    nfr_reqs = {
+        "performance": {"page_load": "< 2s"},
+        "accessibility": {"wcag_level": "AA"}
+    }
+    nfr_tests = await generate_nfr_tests(url, context, nfr_reqs)
+    print(f"✅ {len(nfr_tests)} NFR tests")
+    
+    return {"functional": func_tests, "nfr": nfr_tests}
+
+# Run for multiple pages
+pages = [
+    ("https://myapp.com/login", "User authentication"),
+    ("https://myapp.com/register", "User registration"),
+    ("https://myapp.com/checkout", "E-commerce checkout")
+]
+
+for url, context in pages:
+    tests = asyncio.run(generate_tests_for_url(url, context))
+    # Save or process tests as needed
+```
+
+---
+
+### Example 3: Element Discovery
+
+**Use Case:** Understand page structure before test generation
 
 ```python
 import asyncio
-from cua_tools import open_browser_capture_screen, encode_file_to_base64, extract_elements_from_image
+from cua_tools import get_interactive_elements
 
-async def analyze_page():
-    # Capture screenshot
-    browser, page = await open_browser_capture_screen(
-        url="https://example.com",
-        screenshot_path="page.png"
+async def analyze_page_structure(url):
+    """Extract and categorize interactive elements."""
+    elements = await get_interactive_elements(url)
+    
+    # Group by element type
+    by_type = {}
+    for elem in elements:
+        tag = elem['tag']
+        by_type.setdefault(tag, []).append(elem)
+    
+    # Display summary
+    print(f"\n📊 Page Analysis: {url}\n")
+    print(f"Total interactive elements: {len(elements)}\n")
+    
+    for tag, items in by_type.items():
+        print(f"{tag.upper()}: {len(items)}")
+        for item in items[:3]:  # Show first 3
+            print(f"  • ID: {item.get('id', 'N/A')} | Text: {item.get('text', '')[:30]}")
+        if len(items) > 3:
+            print(f"  ... and {len(items) - 3} more")
+        print()
+
+# Run analysis
+asyncio.run(analyze_page_structure("https://example.com"))
+```
+
+**Output:**
+```
+📊 Page Analysis: https://example.com
+
+Total interactive elements: 15
+
+INPUT: 4
+  • ID: email | Text: 
+  • ID: password | Text: 
+  • ID: remember | Text: 
+  ... and 1 more
+
+BUTTON: 3
+  • ID: login-btn | Text: Sign In
+  • ID: forgot-pwd | Text: Forgot Password?
+  • ID: signup-link | Text: Create Account
+
+A: 8
+  • ID: N/A | Text: Terms of Service
+  • ID: N/A | Text: Privacy Policy
+  ... and 6 more
+```
+
+---
+
+### Example 4: Custom Test Requirements
+
+**Use Case:** Generate tests with specific performance/security requirements
+
+```python
+import asyncio
+from cua_tools import generate_nfr_tests
+
+async def generate_strict_nfr_tests():
+    """Generate NFR tests with strict requirements."""
+    
+    # Define strict requirements
+    requirements = {
+        "performance": {
+            "page_load_time": "< 1.5s",
+            "time_to_interactive": "< 2s",
+            "first_contentful_paint": "< 800ms"
+        },
+        "security": {
+            "https_only": True,
+            "csrf_protection": True,
+            "xss_prevention": True,
+            "input_sanitization": True
+        },
+        "accessibility": {
+            "wcag_level": "AAA",  # Highest level
+            "keyboard_navigation": "full",
+            "screen_reader": "compatible",
+            "color_contrast": "7:1"
+        }
+    }
+    
+    tests = await generate_nfr_tests(
+        url="https://myapp.com/payment",
+        business_context="Payment processing page (PCI-DSS compliant)",
+        nfr_expectations=requirements
     )
     
-    # Extract elements using vision model
-    encoded_image = encode_file_to_base64("page.png")
-    elements = extract_elements_from_image(encoded_image)
+    # Display by category
+    by_category = {}
+    for test in tests:
+        cat = test['category']
+        by_category.setdefault(cat, []).append(test)
     
-    print(f"Detected elements: {elements}")
-    await browser.close()
+    for category, test_list in by_category.items():
+        print(f"\n{category.upper()} Tests: {len(test_list)}")
+        for test in test_list:
+            print(f"  • {test['title']}")
+            print(f"    Tools: {', '.join(test['tooling_suggestions'])}")
 
-asyncio.run(analyze_page())
+asyncio.run(generate_strict_nfr_tests())
 ```
 
-#### Example 2: Generate and Execute Automation
+---
 
-```python
-from cua_tools import generate_automation_code, execute_automation_code
+## ⚙️ Configuration
 
-# Generate code based on extracted elements
-elements = [
-    {"tag": "input", "id": "username", "class": "form-control", "text": ""},
-    {"tag": "button", "id": "submit", "class": "btn-primary", "text": "Login"}
-]
+### Environment Variables (`.env`)
 
-automation_code = generate_automation_code(elements)
-print(automation_code)
+```env
+# === REQUIRED SETTINGS ===
 
-# Execute generated code
-await execute_automation_code(automation_code, "https://example.com/login")
+# Ollama API endpoint
+OLLAMA_BASE_URL=http://localhost:11434
+
+# Text model for test generation
+# Alternatives: mistral, mixtral:8x7b, llama3.1
+OLLAMA_MODEL=llama3.2
+
+# Vision model for image analysis (optional)
+# Alternatives: llava, bakllava, llava-phi3
+VISION_MODEL=llama3.2-vision
+
+# Code model for automation generation (optional)
+# Alternatives: codellama:13b, starcoder2
+CODING_MODEL=deepseek-coder:6.7b
 ```
 
-#### Example 3: Simple Browser Navigation
+### Browser Configuration
 
-```python
-from cua_tools import open_browser
-
-# Opens browser, navigates to URL, logs title, then closes
-await open_browser("https://example.com")
-```
-
-## Key Components
-
-### [`cua_agent.py`](cua_agent.py)
-
-Main autonomous agent orchestrator that coordinates the complete automation workflow:
-
-**Workflow Steps:**
-1. **User Input:** Prompts for target URL
-2. **Screenshot Capture:** Opens browser and captures full-page screenshot
-3. **Element Extraction:** Uses vision model to detect UI elements
-4. **Code Generation:** Creates Playwright automation code
-5. **Execution:** Runs generated code against the target page
-
-**Key Features:**
-- Async/await architecture
-- Comprehensive logging at each step
-- Error handling and validation
-- Clean resource management
-
-### [`cua_tools.py`](cua_tools.py)
-
-Core toolkit module providing all automation capabilities:
-
-#### Browser Automation Functions
-
-**[`open_browser(url)`](cua_tools.py)**
-- Launches Chromium in non-headless mode (async)
-- Sets viewport to 1280x720
-- Navigates to specified URL
-- Waits for page load
-- Logs page title
-- Automatically closes browser
-
-**[`open_browser_capture_screen(url, screenshot_path)`](cua_tools.py)**
-- Async browser launch with viewport configuration
-- Full-page screenshot capture
-- Returns live browser and page objects
-- **Important:** Caller must close browser manually
-
-**Configuration:**
+**Viewport Size** (defined in [`cua_tools.py`](cua_tools.py)):
 ```python
 VIEWPORT = {'width': 1280, 'height': 720}
 ```
 
-#### AI Integration Functions
+To change, edit the constant in `cua_tools.py` (no hot reload - restart script).
 
-**[`encode_file_to_base64(screenshot_path)`](cua_tools.py)**
-- Encodes image files to base64 strings
-- Returns UTF-8 encoded string without newlines
-- Includes debug logging
-- Handles binary file reading
+**Headless Mode:**
+- Test generation: Uses visible browser (`headless=False`) for debugging
+- Code execution: Uses headless browser (`headless=True`) for speed
 
-**[`extract_elements_from_image(encoded_image)`](cua_tools.py)**
-- Uses vision model to analyze screenshots
-- Extracts HTML-like UI elements
-- Returns JSON array of objects with fields:
-  - `tag`: HTML tag name (e.g., "input", "button")
-  - `id`: Element ID attribute
-  - `class`: CSS class names
-  - `text`: Text content
-- Posts to Ollama `/api/generate` endpoint
-- Enforces JSON response format
-
-**Request Structure:**
-```python
-{
-    "model": VISION_MODEL,
-    "prompt": "Extract all HTML elements...",
-    "stream": False,
-    "images": [encoded_image],
-    "format": "json"
-}
-```
-
-**[`generate_automation_code(vision_elements)`](cua_tools.py)**
-- Generates Python Playwright automation code
-- Uses text-based Ollama model
-- Focuses on form filling and button clicking
-- Returns executable Python code as string
-- Designed for AI agent discovery and autonomous workflows
-
-**Prompt Template:**
-```python
-f"You are an automation agent. The user interface contains:{vision_elements}. 
-Generate Python Playwright code to fill out the email and password fields 
-and click the 'Log In' button.
-Output only the Python code for the actions, no explanation.
-Provide only the code without any explanations."
-```
-
-**[`execute_automation_code(actions_code, url)`](cua_tools.py)**
-- Dynamically executes generated Playwright code
-- Runs in headless mode for performance
-- Wraps code in async context manager
-- Uses `exec()` with globals scope
-- Automatically handles browser lifecycle
-- **Security Note:** Only execute trusted code
-
-**Generated Code Structure:**
-```python
-async def run():
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
-        await page.goto(f"{url}")
-        {actions_code}  # Injected code here
-        await browser.close()
-```
-
-## Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| playwright | ~1.56.0 | Async browser automation and testing framework |
-| ollama | ~0.6.1 | Local AI model integration (not directly used in tools) |
-| python-dotenv | ~1.2.1 | Environment variable management from `.env` files |
-| certifi | ~2025.11.12 | SSL certificate validation bundle |
-| python-certifi-win32 | ~1.6.1 | Windows-specific SSL certificate support |
-| requests | ~2.32.5 | HTTP library for Ollama API calls |
-
-See [`requirements.txt`](requirements.txt) for exact versions.
-
-## Configuration
-
-### Environment Variables
-
-Configure in `.env` file (not tracked in version control):
-
-```env
-# Ollama server base URL
-OLLAMA_BASE_URL=http://localhost:11434
-
-# Text-based model for code generation
-# Examples: llama3.2, mistral, codellama
-OLLAMA_MODEL=llama3.2
-
-# Vision-capable model for image analysis
-# Examples: llama3.2-vision, llava, bakllava
-VISION_MODEL=llama3.2-vision
-```
-
-**Required Models:**
-- **VISION_MODEL:** Must support image input (multimodal)
-- **OLLAMA_MODEL:** Can be text-only, optimized for code generation
+To change, modify `async def open_browser()` calls in `cua_tools.py`.
 
 ### Logging Configuration
 
-All modules use consistent DEBUG-level logging:
+**Default:** DEBUG level with timestamps (already configured in both scripts)
 
+**To save logs to file**, add at top of `cua_agent.py`:
 ```python
+import logging
+
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    force=True
+    handlers=[
+        logging.FileHandler("test_generation.log"),  # Save to file
+        logging.StreamHandler()                       # Also print
+    ]
 )
 ```
 
-**Logged Events:**
-- URL navigation
-- Screenshot capture and saving
-- File encoding operations
+**Logged information:**
+- URL navigation and page loading
 - Element extraction results
-- Code generation output
-- Automation execution
-- All API requests/responses
+- AI model API calls
+- Test generation progress
+- File operations (JSON saving)
 
-### Viewport Settings
+---
 
-Standardized browser viewport in [`cua_tools.py`](cua_tools.py):
+## 🏗️ Project Architecture
 
+### File Structure
+
+```
+prompt-test-agent/
+│
+├── cua_agent.py              # Main entry point
+│   └── Purpose: Orchestrates test generation workflow
+│       - Prompts user for URL
+│       - Calls functional test generator
+│       - Calls NFR test generator  
+│       - Saves results to JSON
+│
+├── cua_tools.py              # Core toolkit (all functions)
+│   └── Purpose: Reusable automation functions
+│       - Browser automation (open, navigate, extract)
+│       - Element extraction (JavaScript evaluation)
+│       - Test generation (functional + NFR)
+│       - Code generation (Playwright automation)
+│       - AI integration (Ollama API calls)
+│
+├── requirements.txt          # Python dependencies
+├── .env                      # Configuration (git-ignored)
+├── .gitignore               # Files to exclude from git
+├── LICENSE                  # MIT License
+└── README.md                # This documentation
+```
+
+### Component Interaction
+
+```
+┌─────────────────┐
+│   cua_agent.py  │  ← You run this
+│   (Orchestrator)│
+└────────┬────────┘
+         │
+         │ imports all functions from
+         ▼
+┌─────────────────────────────────────┐
+│         cua_tools.py                │
+│  (Function Library)                 │
+│                                     │
+│  ┌─────────────────────────────┐   │
+│  │ Browser Functions           │   │
+│  │ • open_browser()            │   │
+│  │ • get_interactive_elements()│   │
+│  └─────────────────────────────┘   │
+│                                     │
+│  ┌─────────────────────────────┐   │
+│  │ Test Generation             │   │
+│  │ • build_functional_prompt() │   │
+│  │ • build_nfr_prompt()        │   │
+│  │ • generate_functional()     │   │
+│  │ • generate_nfr()            │   │
+│  └─────────────────────────────┘   │
+│                                     │
+│  ┌─────────────────────────────┐   │
+│  │ Code Generation             │   │
+│  │ • generate_automation_code()│   │
+│  │ • execute_automation_code() │   │
+│  └─────────────────────────────┘   │
+│                                     │
+│  ┌─────────────────────────────┐   │
+│  │ AI Integration              │   │
+│  │ • generate_final_output()   │   │
+│  │   (calls Ollama API)        │   │
+│  └─────────────────────────────┘   │
+└─────────────────────────────────────┘
+         │
+         │ HTTP POST requests
+         ▼
+┌─────────────────┐
+│  Ollama Server  │  ← Running on localhost:11434
+│  (AI Models)    │
+└─────────────────┘
+```
+
+### Data Flow
+
+```
+1. User Input
+   └─> URL (e.g., https://example.com)
+   └─> Business Context (hardcoded: "Search website")
+
+2. Element Extraction
+   └─> Playwright opens browser
+   └─> JavaScript extracts: <a>, <button>, <input>, <textarea>, <select>
+   └─> Returns: [{tag, type, id, name, text, placeholder, ariaLabel, role}, ...]
+
+3. Test Generation (Parallel)
+   
+   ┌─────────────────────────┐   ┌────────────────────────┐
+   │ Functional Tests        │   │ NFR Tests              │
+   │                         │   │                        │
+   │ • Prompt: "Generate     │   │ • Prompt: "Generate    │
+   │   functional tests for  │   │   NFR tests covering   │
+   │   these elements..."    │   │   performance,         │
+   │                         │   │   security, a11y..."   │
+   │ • Model: llama3.2       │   │ • Model: llama3.2      │
+   │                         │   │                        │
+   │ • Output: JSON array    │   │ • Output: JSON array   │
+   └────────┬────────────────┘   └──────────┬─────────────┘
+            │                               │
+            └───────────┬───────────────────┘
+                        │
+                        ▼
+4. Combine & Save
+   └─> {
+         "functional_tests": [...],
+         "nfr_tests": [...]
+       }
+   └─> Save to generated_tests.json
+```
+
+### Key Design Decisions
+
+**1. Separation of Concerns**
+   - `cua_agent.py` = Workflow orchestration (what to do)
+   - `cua_tools.py` = Reusable functions (how to do it)
+   - Benefit: Functions can be imported and reused in other scripts
+
+**2. Async/Await Architecture**
+   - All browser operations use `async`/`await`
+   - Benefit: Non-blocking I/O, faster execution
+   - Note: Must run with `asyncio.run()` or in async context
+
+**3. Prompt Engineering**
+   - Separate prompt builder functions for functional vs NFR tests
+   - JSON schema enforcement in prompts
+   - Benefit: Consistent, parseable output from AI models
+
+**4. JSON Output Format**
+   - All test artifacts saved as structured JSON
+   - Benefit: Easy to parse, version control, integrate with CI/CD
+
+**5. Local AI Processing**
+   - Uses Ollama (runs locally, no external API calls)
+   - Benefit: Privacy, no rate limits, free usage
+
+---
+
+## 📄 Generated Output
+
+### Primary Output: `generated_tests.json`
+
+**Location:** Same directory as `cua_agent.py`
+
+**Structure:**
+```json
+{
+  "functional_tests": [
+    {
+      "id": "FUNC_001",
+      "title": "User can search with valid query",
+      "preconditions": [
+        "User is on homepage",
+        "Search box is visible"
+      ],
+      "steps": [
+        "Click on search input field",
+        "Enter search term 'AI automation'",
+        "Click search button or press Enter"
+      ],
+      "expected_result": "Search results page displays relevant results",
+      "tags": ["search", "happy-path", "critical"]
+    }
+  ],
+  "nfr_tests": [
+    {
+      "id": "NFR_001",
+      "category": "performance",
+      "title": "Search page loads within 2 seconds",
+      "description": "Measure time from search submission to results display",
+      "acceptance_criteria": [
+        "Page load time < 2000ms",
+        "First Contentful Paint < 1000ms",
+        "No JavaScript errors in console"
+      ],
+      "tooling_suggestions": ["Playwright", "Lighthouse", "WebPageTest"]
+    },
+    {
+      "id": "NFR_002",
+      "category": "accessibility",
+      "title": "Search input has proper ARIA labels",
+      "description": "Verify screen reader compatibility of search form",
+      "acceptance_criteria": [
+        "Input has aria-label or label element",
+        "Button has accessible name",
+        "Focus order is logical"
+      ],
+      "tooling_suggestions": ["axe-core", "NVDA", "JAWS"]
+    }
+  ]
+}
+```
+
+### Field Descriptions
+
+#### Functional Test Fields
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `id` | string | Unique identifier (auto-generated) | `"FUNC_001"` |
+| `title` | string | One-line test description | `"User can login"` |
+| `preconditions` | array | Required setup before test | `["User registered"]` |
+| `steps` | array | Sequential actions | `["Click button", "Enter text"]` |
+| `expected_result` | string | Pass criteria | `"Dashboard displayed"` |
+| `tags` | array | Categories for filtering | `["login", "critical"]` |
+
+#### NFR Test Fields
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `id` | string | Unique identifier | `"NFR_001"` |
+| `category` | string | Test type | `"performance"`, `"security"`, `"accessibility"`, `"usability"`, `"reliability"` |
+| `title` | string | One-line description | `"Page loads under 2s"` |
+| `description` | string | Detailed explanation | `"Measure load time..."` |
+| `acceptance_criteria` | array | Pass/fail conditions | `["Load < 2s", "No errors"]` |
+| `tooling_suggestions` | array | Recommended tools | `["Lighthouse", "k6"]` |
+
+### Additional Generated Files
+
+| File | Created By | Purpose |
+|------|-----------|---------|
+| `generated_automation_code.py` | `generate_automation_code()` | Raw Playwright code (search automation) |
+| `local_code.py` | `execute_automation_code()` | Wrapped code with async context |
+| `screenshot.png` | `open_browser_capture_screen()` | Full-page screenshot (optional) |
+
+**Note:** Only `generated_tests.json` is created by default in current implementation.
+
+---
+
+## 📚 API Reference
+
+### Core Functions in `cua_tools.py`
+
+#### Browser Functions
+
+##### `async def get_interactive_elements(url: str) -> list[dict]`
+
+**Purpose:** Extract all interactive elements from a web page
+
+**Parameters:**
+- `url` (str): Full URL to analyze
+
+**Returns:** List of dictionaries with element metadata:
 ```python
-VIEWPORT = {'width': 1280, 'height': 720}
+[
+    {
+        "tag": "input",           # HTML tag name
+        "type": "email",          # Type attribute (for inputs)
+        "id": "email-field",      # ID attribute
+        "name": "email",          # Name attribute
+        "text": "",               # Visible text content
+        "placeholder": "Email",   # Placeholder text
+        "ariaLabel": "Email",     # ARIA label
+        "role": None              # ARIA role
+    },
+    # ... more elements
+]
 ```
 
-## AI Agent Discovery
-
-This framework is designed for AI agent discoverability and autonomous automation:
-
-**Tags:** `#autonomous-agent` `#vision-ai` `#code-generation` `#playwright` `#ollama` `#multimodal` `#web-automation` `#dynamic-execution` `#ui-testing` `#computer-use-agent`
-
-**AI Tool Metadata (Embedded in Docstrings):**
-- Function discovery tags for automated tooling
-- Input/output schemas documented
-- Purpose and side effects clearly stated
-- Failure modes and error handling described
-
-**Supported AI Tasks:**
-- Autonomous UI interaction
-- Vision-based element detection
-- Dynamic test case generation
-- Form automation
-- Login sequence automation
-- Regression testing
-- Accessibility auditing
-
-## Use Cases & Examples
-
-### Use Case 1: Autonomous Login Automation
-
+**Usage:**
 ```python
-import asyncio
-from cua_tools import *
-
-async def auto_login():
-    # Step 1: Capture login page
-    browser, page = await open_browser_capture_screen(
-        "https://example.com/login",
-        "login.png"
-    )
-    await browser.close()
-    
-    # Step 2: Extract form elements
-    encoded = encode_file_to_base64("login.png")
-    elements = extract_elements_from_image(encoded)
-    print(f"Found elements: {elements}")
-    
-    # Step 3: Generate automation code
-    code = generate_automation_code(elements)
-    print(f"Generated code:\n{code}")
-    
-    # Step 4: Execute automation
-    await execute_automation_code(code, "https://example.com/login")
-
-asyncio.run(auto_login())
+elements = await get_interactive_elements("https://example.com")
+inputs = [e for e in elements if e['tag'] == 'input']
 ```
 
-### Use Case 2: Form Field Discovery
+**Note:** Opens visible browser, extracts elements via JavaScript, closes browser.
 
+---
+
+##### `async def open_browser(url: str) -> None`
+
+**Purpose:** Open browser, navigate to URL, log title, close
+
+**Parameters:**
+- `url` (str): URL to navigate to
+
+**Returns:** None
+
+**Side Effects:**
+- Launches Chromium (visible window)
+- Sets viewport to 1280x720
+- Waits for page load
+- Logs page title to console
+- Closes browser
+
+**Usage:**
 ```python
-# Extract all input fields from a form
-encoded_image = encode_file_to_base64("form_screenshot.png")
-fields = extract_elements_from_image(encoded_image)
-
-# Filter for input elements
-input_fields = [f for f in fields if f['tag'] == 'input']
-print(f"Found {len(input_fields)} input fields:")
-for field in input_fields:
-    print(f"  - {field['id']}: {field.get('text', 'N/A')}")
+await open_browser("https://example.com")
 ```
 
-### Use Case 3: Visual Regression Testing
+---
 
+##### `async def open_browser_capture_screen(url: str, screenshot_path: str) -> tuple`
+
+**Purpose:** Open browser, capture screenshot, return browser handles
+
+**Parameters:**
+- `url` (str): URL to navigate to
+- `screenshot_path` (str): Where to save screenshot (e.g., `"screenshot.png"`)
+
+**Returns:** `(browser, page)` tuple - both objects remain open
+
+**⚠️ Warning:** Caller must close browser manually:
 ```python
-async def compare_pages():
-    # Capture baseline
-    await open_browser_capture_screen("https://example.com", "baseline.png")
-    
-    # Capture current state
-    await open_browser_capture_screen("https://example.com", "current.png")
-    
-    # Extract elements from both
-    baseline_elements = extract_elements_from_image(
-        encode_file_to_base64("baseline.png")
-    )
-    current_elements = extract_elements_from_image(
-        encode_file_to_base64("current.png")
-    )
-    
-    # Compare (custom logic)
-    if baseline_elements != current_elements:
-        print("⚠️ UI changes detected!")
-    else:
-        print("✅ No changes detected")
+browser, page = await open_browser_capture_screen("https://example.com", "out.png")
+# ... do something with page ...
+await browser.close()  # Required!
 ```
 
-### Use Case 4: Dynamic Test Generation
+---
 
+#### Test Generation Functions
+
+##### `async def generate_functional_tests(url: str, business_context: str) -> list[dict]`
+
+**Purpose:** Generate functional test cases for a web page
+
+**Parameters:**
+- `url` (str): Target URL
+- `business_context` (str): Description of page purpose (helps AI generate relevant tests)
+
+**Returns:** List of functional test dictionaries
+
+**Example:**
 ```python
-# Generate tests for any web form
-async def generate_form_tests(url):
-    browser, page = await open_browser_capture_screen(url, "form.png")
-    await browser.close()
-    
-    elements = extract_elements_from_image(encode_file_to_base64("form.png"))
-    test_code = generate_automation_code(elements)
-    
-    # Save to file for review
-    with open("generated_test.py", "w") as f:
-        f.write(test_code)
-    
-    print(f"Test generated and saved to generated_test.py")
+tests = await generate_functional_tests(
+    url="https://myapp.com/login",
+    business_context="User authentication page for e-commerce site"
+)
+
+# Returns:
+# [
+#   {
+#     "id": "FUNC_001",
+#     "title": "User can login with valid credentials",
+#     "preconditions": ["User is registered"],
+#     "steps": ["Enter email", "Enter password", "Click login"],
+#     "expected_result": "User redirected to dashboard",
+#     "tags": ["login", "authentication"]
+#   },
+#   # ... more tests
+# ]
 ```
 
-## Troubleshooting
+**Process:**
+1. Extracts interactive elements
+2. Builds prompt with elements + context
+3. Calls Ollama API
+4. Parses JSON response
+5. Returns test array
 
-### Common Issues
+---
 
-#### 1. **Ollama Connection Errors**
-```
-requests.exceptions.ConnectionError: Connection refused
-```
-**Solution:**
-- Ensure Ollama is running: `ollama serve`
-- Verify `OLLAMA_BASE_URL` in `.env` matches server address
-- Check firewall settings
+##### `async def generate_nfr_tests(url: str, business_context: str, nfr_expectations: dict | None = None) -> list[dict]`
 
-#### 2. **Vision Model Not Found**
+**Purpose:** Generate non-functional requirement test cases
+
+**Parameters:**
+- `url` (str): Target URL
+- `business_context` (str): Page description
+- `nfr_expectations` (dict, optional): Specific requirements
+
+**NFR Expectations Format:**
+```python
+{
+    "performance": {
+        "page_load_time": "< 2s",
+        "time_to_interactive": "< 3s"
+    },
+    "security": {
+        "https_only": True,
+        "csrf_protection": True
+    },
+    "accessibility": {
+        "wcag_level": "AA"
+    }
+}
 ```
-Error: model 'llama3.2-vision' not found
+
+**Returns:** List of NFR test dictionaries
+
+**Example:**
+```python
+tests = await generate_nfr_tests(
+    url="https://myapp.com",
+    business_context="Homepage",
+    nfr_expectations={"performance": {"page_load": "< 2s"}}
+)
 ```
+
+---
+
+#### Code Generation Functions
+
+##### `def generate_automation_code(vision_elements: dict, url: str) -> str`
+
+**Purpose:** Generate Playwright automation code (search functionality)
+
+**Parameters:**
+- `vision_elements` (dict): Page elements (currently unused in prompt)
+- `url` (str): Target URL
+
+**Returns:** Python code as string
+
+**Behavior:**
+- Generates code to fill search box with "AI based automation"
+- Clicks search button
+- Removes markdown code fences (```)
+- Saves to `generated_automation_code.py`
+
+**⚠️ Note:** Uses `CODING_MODEL` (deepseek-coder) - requires model to be pulled.
+
+---
+
+##### `async def execute_automation_code(actions_code: str, url: str) -> None`
+
+**Purpose:** Execute Playwright automation code
+
+**Parameters:**
+- `actions_code` (str): Python code to execute
+- `url` (str): Target URL
+
+**⚠️ Security Warning:**
+- Uses `exec()` which can run arbitrary code
+- Only execute code from trusted sources
+- Review generated code before execution
+
+**Process:**
+1. Wraps code in async context
+2. Saves to `local_code.py`
+3. Executes with `exec(local_code, globals())`
+
+---
+
+#### Helper Functions
+
+##### `def build_functional_tests_prompt(url: str, elements: list, business_context: str) -> str`
+
+**Purpose:** Build prompt for functional test generation
+
+**Returns:** Formatted prompt string with JSON schema
+
+---
+
+##### `def build_nfr_tests_prompt(url: str, elements: list, business_context: str, nfr_expectations: dict | None) -> str`
+
+**Purpose:** Build prompt for NFR test generation
+
+**Returns:** Formatted prompt string with JSON schema
+
+---
+
+##### `def generate_final_output(prompt: str) -> str`
+
+**Purpose:** Call Ollama API with prompt
+
+**Parameters:**
+- `prompt` (str): Text prompt for AI model
+
+**Returns:** Raw response string from model
+
+**API Call:**
+```python
+POST http://localhost:11434/api/generate
+{
+  "model": "llama3.2",
+  "prompt": "...",
+  "stream": False
+}
+```
+
+---
+
+##### `def encode_file_to_base64(screenshot_path: str) -> str`
+
+**Purpose:** Convert image to base64 string (for vision models)
+
+**Parameters:**
+- `screenshot_path` (str): Path to image file
+
+**Returns:** Base64-encoded string
+
+---
+
+##### `def extract_elements_from_image(encoded_image: str) -> str`
+
+**Purpose:** Use vision model to extract elements from screenshot
+
+**Parameters:**
+- `encoded_image` (str): Base64-encoded image
+
+**Returns:** JSON string with extracted elements
+
+**⚠️ Note:** Currently not used in main workflow, but available for future features.
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues & Solutions
+
+#### Issue 1: Ollama Connection Error
+
+**Symptoms:**
+```
+requests.exceptions.ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+```
+
+**Causes:**
+1. Ollama not running
+2. Wrong port in `.env`
+3. Firewall blocking connection
+
+**Solutions:**
+
+**Step 1:** Check if Ollama is running
+```bash
+# Should return Ollama version
+curl http://localhost:11434
+
+# If not running:
+ollama serve
+```
+
+**Step 2:** Verify `.env` configuration
+```env
+OLLAMA_BASE_URL=http://localhost:11434  # Default port
+```
+
+**Step 3:** Test with curl
+```bash
+curl -X POST http://localhost:11434/api/generate \
+  -d '{"model":"llama3.2","prompt":"test","stream":false}'
+```
+
+---
+
+#### Issue 2: Model Not Found
+
+**Symptoms:**
+```
+Error: model 'llama3.2' not found
+```
+
 **Solution:**
 ```bash
+# List installed models
+ollama list
+
+# Install missing model
+ollama pull llama3.2
 ollama pull llama3.2-vision
-ollama list  # Verify installation
+ollama pull deepseek-coder:6.7b
+
+# Verify installation
+ollama list
 ```
 
-#### 3. **Playwright Browser Not Found**
+**Expected Output:**
 ```
-playwright._impl._api_types.Error: Executable doesn't exist
+NAME                    ID              SIZE    MODIFIED
+llama3.2:latest         abc123...       2.0 GB  2 days ago
+llama3.2-vision:latest  def456...       2.1 GB  2 days ago
+deepseek-coder:6.7b     ghi789...       3.8 GB  2 days ago
 ```
+
+---
+
+#### Issue 3: JSON Parsing Error
+
+**Symptoms:**
+```
+json.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+```
+
+**Causes:**
+1. AI model not returning valid JSON
+2. Model output wrapped in markdown
+3. Model too small/weak for task
+
+**Solutions:**
+
+**Option 1:** Try different model
+```bash
+ollama pull mistral
+```
+Update `.env`:
+```env
+OLLAMA_MODEL=mistral
+```
+
+**Option 2:** Check model output manually
+```python
+from cua_tools import generate_final_output
+
+prompt = "Generate JSON: {\"test\": \"value\"}"
+output = generate_final_output(prompt)
+print(f"Raw output: {output}")  # Inspect what model returns
+```
+
+**Option 3:** Increase model size
+```bash
+ollama pull llama3.1:70b  # Larger, more capable model
+```
+
+---
+
+#### Issue 4: No Interactive Elements Found
+
+**Symptoms:**
+```
+Generated 0 functional tests
+```
+
+**Causes:**
+1. Page is static (no forms/buttons)
+2. JavaScript-heavy page not fully loaded
+3. Elements hidden/not rendered
+
+**Solutions:**
+
+**Check what was extracted:**
+```python
+elements = await get_interactive_elements("https://example.com")
+print(f"Found {len(elements)} elements")
+print(elements)  # Inspect actual output
+```
+
+**Increase wait time:**
+Edit `cua_tools.py`, in `get_interactive_elements()`:
+```python
+await page.goto(url)
+await page.wait_for_load_state('networkidle')  # Wait for all network activity
+await page.wait_for_timeout(2000)  # Additional 2s wait
+```
+
+---
+
+#### Issue 5: Playwright Browser Not Found
+
+**Symptoms:**
+```
+playwright._impl._api_types.Error: Executable doesn't exist at C:\Users\...\chromium-1234\chrome-win\chrome.exe
+```
+
 **Solution:**
 ```bash
 playwright install chromium
 ```
 
-#### 4. **Async Function Not Awaited**
+**Verify installation:**
+```bash
+python -c "from playwright.sync_api import sync_playwright; sync_playwright().start().chromium.launch()"
 ```
-RuntimeWarning: coroutine 'open_browser' was never awaited
-```
-**Solution:**
-- Use `await` keyword: `await open_browser(url)`
-- Or run with: `asyncio.run(open_browser(url))`
 
-#### 5. **JSON Decode Error from Vision Model**
-```
-json.JSONDecodeError: Expecting value
-```
-**Solution:**
-- Model may not be returning valid JSON
-- Try different vision model: `ollama pull llava`
-- Check model supports `format: "json"` parameter
+---
 
-#### 6. **Screenshot File Not Found**
-```
-FileNotFoundError: [Errno 2] No such file or directory: 'screenshot.png'
-```
-**Solution:**
-- Ensure write permissions in current directory
-- Use absolute paths: `os.path.abspath("screenshot.png")`
-- Check disk space
+#### Issue 6: Slow Test Generation
 
-#### 7. **Dynamic Code Execution Errors**
+**Symptoms:**
+- Takes > 2 minutes per generation
+- System freezes during generation
+
+**Causes:**
+1. AI model too large for hardware
+2. No GPU acceleration
+3. Too many elements on page
+
+**Solutions:**
+
+**Use smaller/faster model:**
+```bash
+ollama pull llama3.2:8b  # Smaller variant
 ```
-NameError: name 'page' is not defined
+
+**Check system resources:**
+```bash
+# Monitor RAM/CPU during generation
+# Windows:
+taskmgr
+
+# Linux/Mac:
+htop
 ```
-**Solution:**
-- Generated code may be malformed
-- Review `automation_code` before execution
-- Improve prompt in `generate_automation_code()`
+
+**Optimize hardware:**
+- Close other applications
+- Ensure 8GB+ RAM available
+- Use GPU if available (Ollama auto-detects)
+
+---
+
+#### Issue 7: Generated Code Execution Fails
+
+**Symptoms:**
+```
+NameError: name 'async_playwright' is not defined
+SyntaxError: invalid syntax
+```
+
+**Causes:**
+1. Generated code malformed
+2. Missing imports
+3. Code generation model weak
+
+**Solutions:**
+
+**Review generated code:**
+```python
+# Check generated_automation_code.py
+with open("generated_automation_code.py") as f:
+    print(f.read())
+```
+
+**Use better coding model:**
+```bash
+ollama pull codellama:13b
+```
+Update `.env`:
+```env
+CODING_MODEL=codellama:13b
+```
+
+---
 
 ### Debug Mode
 
-All modules already use `DEBUG` level logging. To capture to file:
+**Enable verbose logging:**
 
+Add to top of `cua_agent.py`:
 ```python
+import logging
+
 logging.basicConfig(
     level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.FileHandler("debug.log"),
         logging.StreamHandler()
@@ -545,193 +1175,227 @@ logging.basicConfig(
 )
 ```
 
-## Architecture & Design
+**Inspect generated prompts:**
 
-### Component Interaction Flow
-
-```
-User Input (URL)
-    ↓
-[cua_agent.py] Main Orchestrator
-    ↓
-[cua_tools.py] → open_browser_capture_screen()
-    ↓
-Screenshot (PNG file)
-    ↓
-[cua_tools.py] → encode_file_to_base64()
-    ↓
-Base64 String
-    ↓
-[cua_tools.py] → extract_elements_from_image()
-    ↓
-Ollama Vision Model (VISION_MODEL)
-    ↓
-UI Elements (JSON)
-    ↓
-[cua_tools.py] → generate_automation_code()
-    ↓
-Ollama Text Model (OLLAMA_MODEL)
-    ↓
-Python Code (String)
-    ↓
-[cua_tools.py] → execute_automation_code()
-    ↓
-Dynamic exec() Execution
-    ↓
-Automated Browser Actions
+Add before API call in `cua_tools.py`:
+```python
+def generate_final_output(prompt: str) -> str:
+    print(f"\n=== PROMPT ===\n{prompt}\n=============\n")  # Add this
+    payload = {...}
 ```
 
-### Key Design Patterns
+---
 
-- **Async/Await:** All browser operations use async API
-- **Tool-Based Architecture:** Modular functions for agent composition
-- **Vision-First:** UI understanding through multimodal AI
-- **Code Generation:** Self-modifying automation
-- **Dynamic Execution:** Runtime code compilation and execution
+## 🤝 Contributing
 
-### Security Considerations
+### How to Contribute
 
-⚠️ **IMPORTANT:**
-- `execute_automation_code()` uses `exec()` which can execute arbitrary code
-- **Only use with trusted AI models and validated inputs**
-- Consider sandboxing execution environment
-- Review generated code before execution in production
-
-Other considerations:
-- `.env` file not tracked (contains configuration)
-- Local Ollama instance (no external API calls)
-- Screenshots may contain sensitive information
-- Generated code has full Playwright capabilities
-
-## Development
-
-### For Contributors
-
-1. **Fork and clone** the repository
-2. **Create virtual environment:**
+1. **Fork** the repository
+2. **Clone** your fork:
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # Windows: venv\Scripts\activate
+   git clone https://github.com/YOUR_USERNAME/prompt-test-agent.git
    ```
-3. **Install dependencies:**
+3. **Create feature branch:**
    ```bash
-   pip install -r requirements.txt
-   playwright install chromium
+   git checkout -b feature/my-improvement
    ```
-4. **Configure `.env`:**
-   ```env
-   OLLAMA_BASE_URL=http://localhost:11434
-   OLLAMA_MODEL=llama3.2
-   VISION_MODEL=llama3.2-vision
-   ```
-5. **Test installation:**
+4. **Make changes** and test
+5. **Commit** with clear messages:
    ```bash
-   python cua_agent.py
+   git commit -m "Add support for API testing"
    ```
+6. **Push** to your fork:
+   ```bash
+   git push origin feature/my-improvement
+   ```
+7. **Open Pull Request** on GitHub
 
-### Code Style
+### Contribution Ideas
 
-- Follow PEP 8 guidelines
-- Use type hints where appropriate
-- Include comprehensive docstrings with AI metadata
-- Add logging statements for key operations
-- Use async/await for I/O operations
+**🟢 Easy (Good First Issue)**
+- Add more AI model examples in README
+- Improve error messages
+- Add validation for URLs
+- Create example test outputs
+
+**🟡 Medium**
+- Add CLI arguments (`--url`, `--context`, `--output`)
+- Support Firefox/Safari browsers
+- Export tests to CSV/XML format
+- Add test case deduplication
+
+**🔴 Advanced**
+- Implement test execution engine
+- Add pytest integration
+- Create web UI for test management
+- Docker containerization
+- CI/CD pipeline integration
+
+### Development Setup
+
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+playwright install chromium
+
+# Setup Ollama and models
+ollama serve
+ollama pull llama3.2 llama3.2-vision deepseek-coder:6.7b
+
+# Run tests
+python cua_agent.py
+```
+
+### Code Style Guidelines
+
+- Follow PEP 8 (use `black` formatter)
+- Add type hints for function parameters
+- Write comprehensive docstrings
+- Include AI-discovery metadata in docstrings
+- Add logging for key operations
 - Update README for new features
 
-### Testing
+---
 
-Manual testing via [`cua_agent.py`](cua_agent.py). Future additions:
-- Unit tests for individual tools
-- Integration tests for full workflow
-- Mock Ollama responses for CI/CD
+## ❓ FAQ
 
-## Roadmap
+**Q: Do I need internet for test generation?**
 
-- [ ] Add unit test suite
-- [ ] Support multiple browser engines (Firefox, WebKit)
-- [ ] Configurable viewport via CLI args
-- [ ] Batch processing multiple URLs
-- [ ] Export results to JSON/CSV
-- [ ] Web UI for agent management
-- [ ] Docker containerization
-- [ ] Sandboxed code execution environment
-- [ ] Human-in-the-loop approval for generated code
-- [ ] Test result reporting and analytics
-- [ ] Integration with test frameworks (pytest, unittest)
+A: Only during initial setup (downloading models). After that, everything runs locally.
 
-## Contributing
+---
 
-Contributions are welcome! Please follow these guidelines:
+**Q: How much disk space do AI models need?**
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+A: ~10GB total:
+- `llama3.2`: ~2GB
+- `llama3.2-vision`: ~2GB  
+- `deepseek-coder:6.7b`: ~4GB
 
-### Contribution Areas
+---
 
-- Add new tool functions to [`cua_tools.py`](cua_tools.py)
-- Improve prompt engineering for better code generation
-- Add support for more UI element types
-- Enhance error handling and validation
-- Write documentation and examples
-- Add test coverage
+**Q: Can I use different AI models?**
 
-## License
+A: Yes! Any Ollama-compatible model. Edit `.env`:
+```env
+OLLAMA_MODEL=mistral
+VISION_MODEL=llava
+CODING_MODEL=codellama
+```
 
-This project is licensed under the MIT License - see the [`LICENSE`](LICENSE) file for details.
+---
 
-**Copyright (c) 2025 KumarGN**
+**Q: Does this execute tests or just generate them?**
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+A: Currently **generates test specifications only**. You'll need to:
+1. Export tests to your test framework (pytest, unittest)
+2. Implement test logic based on specifications
+3. Integrate with CI/CD
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+Test execution planned for v4.0.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+---
 
-## Author
+**Q: Is my data sent to external servers?**
+
+A: **No.** All AI processing happens locally via Ollama. No external API calls unless you configure a remote Ollama server.
+
+---
+
+**Q: Can I use this in CI/CD pipelines?**
+
+A: **Yes!** Example:
+```yaml
+# .github/workflows/test-generation.yml
+- name: Generate Tests
+  run: |
+    python cua_agent.py <<< "https://myapp.com"
+    cat generated_tests.json
+```
+
+---
+
+**Q: What's the business context for?**
+
+A: Helps AI understand page purpose for better test generation:
+- ❌ Generic: "Search website"
+- ✅ Specific: "E-commerce product search for electronics store"
+
+Currently hardcoded in `cua_agent.py` line 14 - can be parameterized.
+
+---
+
+**Q: Can I generate tests for authenticated pages?**
+
+A: Not directly. Workarounds:
+1. Manually login first, then run on authenticated page
+2. Modify `get_interactive_elements()` to include login steps
+3. Use Playwright's `storageState` to save cookies
+
+---
+
+**Q: Why is test generation slow?**
+
+A: AI inference time depends on:
+- Model size (larger = slower but better quality)
+- Hardware (CPU vs GPU)
+- Prompt complexity
+
+Typical times:
+- Fast (8B model, GPU): 5-10 seconds
+- Medium (13B model, CPU): 20-40 seconds
+- Slow (70B model, CPU): 60-120 seconds
+
+---
+
+## 📝 License
+
+MIT License - see [`LICENSE`](LICENSE) file
+
+**TL;DR:** Free to use, modify, distribute. No warranty provided.
+
+---
+
+## 👤 Author
 
 **KumarGN**
 - GitHub: [@KumarGN](https://github.com/KumarGN)
 
-## Acknowledgments
+---
 
-- Built with [Playwright](https://playwright.dev/) for reliable async browser automation
-- Powered by [Ollama](https://ollama.ai/) for local multimodal AI inference
-- Inspired by Computer Use Agent (CUA) patterns and autonomous agent architectures
-- Uses [requests](https://requests.readthedocs.io/) for HTTP communication
-- Configuration managed by [python-dotenv](https://github.com/theskumar/python-dotenv)
+## 🙏 Acknowledgments
 
-## Technical Notes
-
-### Performance
-
-- Async operations allow concurrent execution
-- Screenshots saved to disk (not held in memory)
-- Vision model inference time varies (2-10 seconds typical)
-- Code generation typically < 5 seconds
-- Browser instances must be manually closed to free resources
-
-### Limitations
-
-- Requires local Ollama installation
-- Vision model accuracy depends on model quality
-- Generated code may need validation
-- Limited to Chromium browser currently
-- No built-in retry logic for API failures
-
-### Future Enhancements
-
-- Multi-model ensemble for better accuracy
-- Streaming responses from Ollama
-- Caching of vision analysis results
-- Parallel screenshot processing
-- Custom element detection rules
+- **[Playwright](https://playwright.dev/)** - Reliable browser automation
+- **[Ollama](https://ollama.ai/)** - Local AI inference (no external APIs)
+- **[Meta LLaMA](https://ai.meta.com/llama/)** - Open-source language models
+- **[DeepSeek](https://github.com/deepseek-ai)** - Code generation models
 
 ---
 
-**Note:** This is an active development project focused on autonomous AI agents and vision-based automation. APIs and functionality may evolve rapidly.
+## 🔄 Version History
 
-**Last Updated:** 2025-12-03 
-**Version:** 2.0.0 (Vision-First Architecture)
+- **v3.0.0** (2025-12-04s) - Added NFR and functions test generation
+
+
+---
+
+<div align="center">
+
+**Made with ❤️ by KumarGN**
+
+[Report Bug](https://github.com/KumarGN/prompt-test-agent/issues) • [Request Feature](https://github.com/KumarGN/prompt-test-agent/issues) • [Documentation](https://github.com/KumarGN/prompt-test-agent)
+
+---
+
+⭐ **Star this repo if you find it useful!**
+
+</div>
