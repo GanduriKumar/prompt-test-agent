@@ -37,7 +37,7 @@ logging.basicConfig(
 
 # Constants
 VIEWPORT = {'width': 1280, 'height': 720}
-REQUEST_TIMEOUT = 60  # seconds
+REQUEST_TIMEOUT = 300 # seconds
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 ALLOWED_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp'}
 
@@ -56,7 +56,7 @@ FORBIDDEN_PATTERNS = [
     r'\bsetattr\b',
     r'\bdelattr\b',
 ]
-REQUEST_TIMEOUT = 180  # seconds
+REQUEST_TIMEOUT = 300 # seconds
 
 # Reusable requests session with connection pooling
 _session = None
@@ -1255,126 +1255,118 @@ async def generate_nfr_tests(
     
     if test_spec is None:
         logging.error("Failed to parse NFR tests JSON")
-        return []
+        return
     
     return test_spec.get("nfr", [])
 
 
-def generate_final_output(prompt: str) -> str:
-    """Generate AI response using configured LLM provider.
-    
-    AI Tool Discovery Metadata:
-    - Category: AI Integration / API Wrapper
-    - Task: Multi-Provider LLM Request Handler
-    - Purpose: Send prompts to configured LLM provider and return JSON responses
-    - Model: Configurable via LLM_MODEL environment variable (supports Ollama, OpenAI, Anthropic, Google, Azure)
+def generate_final_output(prompt: str, retry_with_simpler: bool = True) -> str:
+    """
+    Generate response from LLM API with strict JSON enforcement.
     
     Args:
-        prompt (str): Text prompt for AI model (max 50,000 chars)
-        
+        prompt: Text prompt for AI model
+        retry_with_simpler: If True, retry with enhanced instructions on failure
+    
     Returns:
-        str: AI-generated response string (JSON format)
-        
-    Configuration:
-        - Endpoint: {OLLAMA_HOST}/api/generate (default: http://localhost:11434)
-        - Model: OLLAMA_MODEL (llama3.2 by default)
-        - Stream: False (synchronous response)
-        - Format: json (structured output)
-        - Timeout: Commented out (no timeout enforced)
-        
-    Process:
-        1. Validates prompt is non-empty string
-        2. Truncates prompt if exceeds 50,000 characters (DoS prevention)
-        3. Constructs JSON payload with model and prompt
-        4. Sends POST request to Ollama API via session pool
-        5. Checks HTTP status code (raises on 4xx/5xx)
-        6. Extracts "response" field from JSON
-        7. Returns response string
-        
-    Example Usage:
-        ```python
-        prompt = "Generate test cases for login form"
-        response = generate_final_output(prompt)
-        # response is JSON string like '{"functional": [...]}'
-        test_cases = json.loads(response)
-        ```
-        
-    Security:
-        - Prompt size limited to 50,000 chars (prevents DoS)
-        - Session pooling with connection reuse
-        - No timeout (WARNING: may hang on slow models)
-        - Input validation (type and emptiness checks)
-        
-    Performance:
-        - Typical inference time: 10-60 seconds (depends on prompt complexity)
-        - Connection pooling: 30-50% faster (via get_session)
-        - First call slower (model loading)
-        - Subsequent calls faster (model cached in memory)
-        
-    Prompt Truncation:
-        - Maximum prompt length: 50,000 characters
-        - Logs warning if truncated
-        - Truncation preserves first 50,000 chars
-        - May affect output quality if prompt is truncated
-        
-    Error Handling:
-        - ValueError: Raised if prompt is empty, not a string, or API request fails
-        - requests.exceptions.RequestException: Network errors, timeouts, HTTP errors
-        - Logs error details before raising
-        
-    Raises:
-        ValueError: If prompt is invalid or API request fails
-        
-    API Payload Structure:
-        ```json
-        {
-            "model": "llama3.2",
-            "prompt": "Your prompt text here",
-            "stream": false,
-            "format": "json"
-        }
-        ```
-        
-    API Response Structure:
-        ```json
-        {
-            "model": "llama3.2",
-            "created_at": "2024-01-01T12:00:00Z",
-            "response": "{\"functional\": [...]}",
-            "done": true
-        }
-        ```
-        
-    Use Cases:
-        - Test case generation (functional and NFR)
-        - Code generation (Playwright automation)
-        - Element extraction (via vision model)
-        - Any Ollama AI inference task
-        
-    Limitations:
-        - No timeout configured (commented out) - may hang indefinitely
-        - Prompt truncation may reduce output quality
-        - JSON format enforced - may fail for non-JSON models
-        - No retry logic for transient failures
-        - Single model per call (no model switching)
-        
-    Tool Category: AI API Integration, Ollama Wrapper, LLM Inference, JSON Generation
+        Raw response string from model
     """
-    if not prompt or not isinstance(prompt, str):
-        raise ValueError("Prompt must be a non-empty string")
+    # Get LLM provider from environment
+    provider = os.getenv("LLM_PROVIDER", "ollama").lower()
     
-    # Limit prompt size to prevent DoS
-    if len(prompt) > 50000:
-        logging.warning(f"Prompt truncated from {len(prompt)} to 50000 characters")
-        prompt = prompt[:50000]
+    # Enhanced payload with strict JSON controls
+    if provider == "ollama":
+        payload = {
+            "model": os.getenv("LLM_MODEL", "llama3.2"),
+            "prompt": prompt,
+            "stream": False,  # Critical: disable streaming
+            "format": "json",  # Request JSON format
+            "options": {
+                "temperature": 0.3,  # Lower = more deterministic
+                "top_p": 0.9,
+                "num_predict": 4096,  # Maximum tokens to generate
+                "stop": ["```", "}\n\n", "]\n\n", "\n\n\n"]
+            }
+        }
+        
+        session = get_session()
+        
+        try:
+            response = session.post(
+                f"{os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')}/api/generate",
+                json=payload,
+                # timeout=REQUEST_TIMEOUT
+            )
+            response.raise_for_status()
+            result = response.json().get("response", "")
+            
+            # Validate it's JSON before returning
+            if not result.strip().startswith(('{', '[')):
+                logging.warning(f"Response doesn't start with JSON: {result[:100]}...")
+                
+                if retry_with_simpler:
+                    logging.info("Retrying with explicit JSON schema...")
+                    # Add JSON schema to prompt
+                    enhanced_prompt = f"""{prompt}
+
+CRITICAL: Your response MUST be ONLY the JSON object. Do not include:
+- Markdown code fences (```)
+- Explanatory text
+- Comments
+- Anything before or after the JSON
+
+Start your response with {{ and end with }}"""
+                    
+                    payload["prompt"] = enhanced_prompt
+                    payload["options"]["temperature"] = 0.1  # Even more deterministic
+                    
+                    response = session.post(
+                        f"{os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')}/api/generate",
+                        json=payload,
+                        # timeout=REQUEST_TIMEOUT
+                    )
+                    response.raise_for_status()
+                    result = response.json().get("response", "")
+            
+            return result
+            
+        except requests.exceptions.RequestException as e:
+            logging.error(f"LLM API request failed: {e}")
+            return "{}"  # Return empty JSON on failure
     
-    try:
-        provider = get_llm_provider()
-        response = provider.generate(prompt, format="json", max_tokens=4096, temperature=0.7)
-        return response
-    except Exception as e:
-        logging.error(f"LLM API request failed: {e}")
-        raise ValueError(f"Failed to generate output: {e}")
+    elif provider == "openai":
+        try:
+            import openai
+            client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            
+            response = client.chat.completions.create(
+                model=os.getenv("LLM_MODEL", "gpt-4-turbo-preview"),
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a test generation expert. Respond ONLY with valid JSON. No markdown, no explanations."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                response_format={"type": "json_object"},  # Enforce JSON mode
+                temperature=0.3,
+                max_tokens=4096
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logging.error(f"OpenAI API request failed: {e}")
+            return "{}"
+    
+    else:
+        # For other providers, use the existing implementation
+        # (Add similar enhancements for Google, Anthropic, Azure)
+        logging.warning(f"Provider {provider} may need JSON formatting enhancements")
+        return "{}"
 
 
 import re
@@ -1382,7 +1374,7 @@ from typing import Optional
 
 def parse_json_response(raw: str, max_attempts: int = 3) -> Optional[dict]:
     """
-    Parse JSON response from AI model with error recovery.
+    Parse JSON response from AI model with aggressive error recovery.
     
     Args:
         raw: Raw response string from AI model
@@ -1391,6 +1383,16 @@ def parse_json_response(raw: str, max_attempts: int = 3) -> Optional[dict]:
     Returns:
         Parsed JSON dict or None if parsing fails
     """
+    # Early validation: check if response is too short (incomplete)
+    if len(raw.strip()) < 20:
+        logging.error(f"Response too short ({len(raw)} chars), likely incomplete: {raw}")
+        return None
+    
+    # Check for incomplete JSON indicators
+    if raw.strip().endswith(('",', '{', '[', '"id":')) and not raw.strip().endswith(('}', ']')):
+        logging.error(f"Response appears incomplete (ends with: {raw.strip()[-20:]})")
+        return None
+    
     for attempt in range(max_attempts):
         try:
             # Attempt 1: Direct parsing
@@ -1414,6 +1416,12 @@ def parse_json_response(raw: str, max_attempts: int = 3) -> Optional[dict]:
                 
                 if start < end:
                     cleaned = raw[start:end + 1]
+                    
+                    # Validate we have balanced braces/brackets
+                    if not is_balanced(cleaned):
+                        logging.warning(f"Extracted JSON has unbalanced braces/brackets")
+                        # Try to complete it
+                        cleaned = complete_json(cleaned)
                 else:
                     cleaned = raw
             
@@ -1425,16 +1433,19 @@ def parse_json_response(raw: str, max_attempts: int = 3) -> Optional[dict]:
         except json.JSONDecodeError as e:
             logging.debug(f"Parse attempt {attempt + 1} failed: {e}")
             
-            # On last attempt, try to fix common issues
+            # On last attempt, try aggressive completion
             if attempt == max_attempts - 1:
                 try:
-                    # Fix unterminated strings by finding incomplete quotes
-                    fixed = fix_unterminated_strings(cleaned)
-                    result = json.loads(fixed)
-                    logging.warning("Recovered from malformed JSON using string fixing")
+                    # Try to complete the JSON structure
+                    completed = complete_json(cleaned)
+                    result = json.loads(completed)
+                    logging.warning("Recovered from incomplete JSON by completing structure")
                     return result
                 except:
-                    logging.error(f"All parse attempts failed. Raw: {raw[:500]}...")
+                    # Log more details about the failure
+                    logging.error(f"All parse attempts failed.")
+                    logging.error(f"Last cleaned version ({len(cleaned)} chars): {cleaned[:200]}...")
+                    logging.error(f"JSON error at position {e.pos}: {e.msg}")
                     return None
             
             continue
@@ -1442,36 +1453,166 @@ def parse_json_response(raw: str, max_attempts: int = 3) -> Optional[dict]:
     return None
 
 
-def fix_unterminated_strings(json_str: str) -> str:
+def is_balanced(json_str: str) -> bool:
     """
-    Attempt to fix unterminated string literals in JSON.
+    Check if JSON string has balanced braces and brackets.
     
     Args:
-        json_str: Potentially malformed JSON string
+        json_str: JSON string to check
     
     Returns:
-        Fixed JSON string
+        True if balanced, False otherwise
     """
-    lines = json_str.split('\n')
-    fixed_lines = []
+    stack = []
+    pairs = {'{': '}', '[': ']', '"': '"'}
+    in_string = False
+    escape_next = False
     
-    for i, line in enumerate(lines):
-        # Check if line has odd number of unescaped quotes (likely unterminated)
-        unescaped_quotes = len(re.findall(r'(?<!\\)"', line))
+    for char in json_str:
+        if escape_next:
+            escape_next = False
+            continue
         
-        if unescaped_quotes % 2 != 0:
-            # Line has unterminated string - try to close it
-            # Look for common patterns
-            if line.rstrip().endswith(','):
-                # Already has comma, just add closing quote
-                fixed_line = line.rstrip()[:-1] + '",'
-            else:
-                # Add closing quote
-                fixed_line = line.rstrip() + '"'
-            
-            logging.debug(f"Fixed line {i}: {line.strip()[:50]}... -> {fixed_line.strip()[:50]}...")
-            fixed_lines.append(fixed_line)
-        else:
-            fixed_lines.append(line)
+        if char == '\\':
+            escape_next = True
+            continue
+        
+        if char == '"':
+            if not in_string:
+                in_string = True
+                stack.append(char)
+            elif stack and stack[-1] == '"':
+                stack.pop()
+                in_string = False
+        elif not in_string:
+            if char in '{[':
+                stack.append(char)
+            elif char in '}]':
+                if not stack:
+                    return False
+                opening = stack.pop()
+                if pairs.get(opening) != char:
+                    return False
     
-    return '\n'.join(fixed_lines)
+    return len(stack) == 0
+
+
+def complete_json(json_str: str) -> str:
+    """
+    Attempt to complete incomplete JSON by adding missing closing braces/brackets.
+    
+    Args:
+        json_str: Incomplete JSON string
+    
+    Returns:
+        Completed JSON string
+    """
+    logging.info("Attempting to complete incomplete JSON structure...")
+    
+    # Count unclosed structures
+    open_braces = json_str.count('{') - json_str.count('}')
+    open_brackets = json_str.count('[') - json_str.count(']')
+    
+    # Count unescaped quotes (should be even)
+    unescaped_quotes = len(re.findall(r'(?<!\\)"', json_str))
+    
+    completed = json_str
+    
+    # Close any unterminated string
+    if unescaped_quotes % 2 != 0:
+        # Find last quote and check if it needs closing
+        last_quote_pos = completed.rfind('"')
+        if last_quote_pos > 0:
+            # Check if we're in the middle of a value
+            after_quote = completed[last_quote_pos + 1:].strip()
+            if not after_quote.startswith(('}', ']', ',')):
+                completed += '"'
+                logging.debug("Added closing quote")
+    
+    # Close any unterminated array/object value with comma
+    if completed.rstrip().endswith(','):
+        # Remove trailing comma before closing
+        completed = completed.rstrip().rstrip(',')
+    
+    # Close brackets and braces
+    for _ in range(open_brackets):
+        completed += '\n]'
+        logging.debug("Added closing bracket ]")
+    
+    for _ in range(open_braces):
+        completed += '\n}'
+        logging.debug("Added closing brace }")
+    
+    logging.info(f"Completed JSON: added {open_brackets} ']' and {open_braces} '}}'")
+    
+    return completed
+
+
+def detect_incomplete_response(raw: str, expected_keys: List[str]) -> bool:
+    """
+    Detect if the LLM response was incomplete/truncated.
+    
+    Args:
+        raw: Raw response string
+        expected_keys: Keys that should be present in complete response
+    
+    Returns:
+        True if response appears incomplete
+    """
+    indicators = [
+        len(raw.strip()) < 50,  # Too short
+        not raw.strip().endswith(('}', ']')),  # Doesn't end with closing
+        raw.strip().endswith(('",', '{')),  # Ends mid-structure
+        raw.count('{') != raw.count('}'),  # Unbalanced braces
+        raw.count('[') != raw.count(']'),  # Unbalanced brackets
+    ]
+    
+    # Check if expected keys are missing
+    for key in expected_keys:
+        if f'"{key}"' not in raw:
+            logging.warning(f"Expected key '{key}' not found in response")
+            indicators.append(True)
+    
+    if any(indicators):
+        logging.error("Response appears incomplete based on structural analysis")
+        return True
+    
+    return False
+
+
+# Model-specific configurations for JSON generation
+MODEL_CONFIGS = {
+    "ollama": {
+        "llama3.2": {
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "num_predict": 4096,
+            "stop": ["```", "}\n\n", "]\n\n", "\n\n\n"]
+        },
+        "mistral": {
+            "temperature": 0.2,
+            "top_p": 0.85,
+            "num_predict": 8192,
+            "stop": ["```"]
+        },
+        "deepseek-coder:6.7b": {
+            "temperature": 0.1,  # Very deterministic for code
+            "top_p": 0.95,
+            "num_predict": 8192
+        }
+    },
+    "openai": {
+        "temperature": 0.3,
+        "response_format": {"type": "json_object"}
+    }
+}
+
+def get_model_config(provider: str, model: str) -> Dict:
+    """Get optimal configuration for specific model."""
+    if provider in MODEL_CONFIGS:
+        if isinstance(MODEL_CONFIGS[provider], dict):
+            if model in MODEL_CONFIGS[provider]:
+                return MODEL_CONFIGS[provider][model]
+            # Return default for provider
+            return MODEL_CONFIGS[provider].get("default", {})
+    return {}
