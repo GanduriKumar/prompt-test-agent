@@ -218,18 +218,26 @@ EOF
 
 ## 📦 Installation
 
+### Basic Installation (Required for All Providers)
+
 ```bash
 # Step 1: Clone the repository
 git clone https://github.com/GanduriKumar/prompt-test-agent.git
 cd prompt-test-agent
 
-# Step 2: Install Python dependencies
+# Step 2: Install Python dependencies (includes all provider SDKs)
 pip install -r requirements.txt
 
 # Step 3: Install browser for automation
 playwright install chromium
+```
 
-# Step 4: Install and start Ollama
+### LLM Provider Setup (Choose One or More)
+
+#### Option A: Ollama (Local, Free)
+
+```bash
+# Install Ollama
 # macOS/Linux:
 curl -fsSL https://ollama.ai/install.sh | sh
 # Windows: Download from https://ollama.ai/download
@@ -237,18 +245,61 @@ curl -fsSL https://ollama.ai/install.sh | sh
 # Start Ollama (keep this terminal open)
 ollama serve
 
-# Step 5: Download AI models (in new terminal)
+# Download AI models (in new terminal)
 ollama pull llama3.2              # Text generation (~2GB)
 ollama pull llama3.2-vision       # Image analysis (~2GB)
 ollama pull deepseek-coder:6.7b   # Code generation (~4GB)
 
-# Step 6: Configure environment
+# Configure .env
 cat > .env << EOF
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.2
+LLM_VISION_MODEL=llama3.2-vision
+LLM_CODING_MODEL=deepseek-coder:6.7b
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2
-VISION_MODEL=llama3.2-vision
-CODING_MODEL=deepseek-coder:6.7b
 EOF
+```
+
+#### Option B: OpenAI (Cloud, Best Quality)
+
+```bash
+# Get API key from https://platform.openai.com/api-keys
+
+# Configure .env
+cat > .env << EOF
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4-turbo-preview
+LLM_VISION_MODEL=gpt-4-vision-preview
+LLM_CODING_MODEL=gpt-4-turbo-preview
+OPENAI_API_KEY=sk-your-actual-key-here
+EOF
+```
+
+#### Option C: Google Gemini (Cloud, Free Tier)
+
+```bash
+# Get API key from https://makersuite.google.com/app/apikey
+
+# Configure .env
+cat > .env << EOF
+LLM_PROVIDER=google
+LLM_MODEL=gemini-pro
+LLM_VISION_MODEL=gemini-pro-vision
+GOOGLE_API_KEY=your-actual-key-here
+EOF
+```
+
+#### Option D: Other Providers
+
+See [LLM_PROVIDER_GUIDE.md](LLM_PROVIDER_GUIDE.md) for Anthropic Claude and Azure OpenAI setup.
+
+### Verify Your Setup
+
+```bash
+# Test your LLM provider configuration
+python test_llm_providers.py
+
+# Should output: ✅ All tests passed!
 ```
 
 ### First Test Generation
@@ -262,22 +313,27 @@ Enter the URL to open: https://example.com
 ```
 
 **What happens:**
-1. ✅ Opens the URL in a browser
-2. 🔍 Extracts all interactive elements (buttons, inputs, links)
-3. 🤖 AI generates 15-20 functional test cases
-4. 🤖 AI generates 15-25 NFR test cases
-5. 💾 Saves everything to `generated_tests.json`
+1. ✅ Initializes your configured LLM provider (Ollama, OpenAI, etc.)
+2. ✅ Opens the URL in a browser
+3. 🔍 Extracts all interactive elements (buttons, inputs, links)
+4. 🤖 AI generates 15-20 functional test cases
+5. 🤖 AI generates 15-25 NFR test cases
+6. 💾 Saves everything to `generated_tests.json`
 
-**Time:** 30-60 seconds total
+**Time:** Varies by provider:
+- Ollama (CPU): 30-60 seconds
+- Ollama (GPU): 10-20 seconds
+- OpenAI/Claude/Gemini: 10-30 seconds
 
 **Output:** 
 ```
+2025-01-15 10:30:45 - INFO - Initialized LLM provider: openai (model: gpt-4-turbo-preview)
 2025-01-15 10:30:45 - INFO - Validated URL: https://example.com
 2025-01-15 10:30:46 - INFO - Starting test generation for URL: https://example.com
-2025-01-15 10:31:20 - INFO - Generated 18 functional tests
-2025-01-15 10:31:20 - INFO - Generated 22 NFR tests
-2025-01-15 10:31:20 - INFO - Tests saved to: generated_tests.json
-2025-01-15 10:31:20 - INFO - Total tests generated: 40
+2025-01-15 10:31:10 - INFO - Generated 18 functional tests
+2025-01-15 10:31:10 - INFO - Generated 22 NFR tests
+2025-01-15 10:31:10 - INFO - Tests saved to: generated_tests.json
+2025-01-15 10:31:10 - INFO - Total tests generated: 40
 ```
 
 ---
@@ -380,22 +436,37 @@ deepseek-coder:6.7b     i9j0k1l2...     3.8 GB  2 days ago
 
 #### 4. Configure Environment
 
-Create `.env` file in project root:
+Create `.env` file in project root (see [.env.example](.env.example) for all options):
 
+**For Ollama (Local):**
 ```env
-# Ollama server URL (default: localhost)
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.2
+LLM_VISION_MODEL=llama3.2-vision
+LLM_CODING_MODEL=deepseek-coder:6.7b
 OLLAMA_BASE_URL=http://localhost:11434
+```
 
-# Model names (must match 'ollama list' output)
-OLLAMA_MODEL=llama3.2
-VISION_MODEL=llama3.2-vision
-CODING_MODEL=deepseek-coder:6.7b
+**For OpenAI (Cloud):**
+```env
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4-turbo-preview
+LLM_VISION_MODEL=gpt-4-vision-preview
+OPENAI_API_KEY=sk-your-actual-key
+```
+
+**For Google Gemini (Cloud):**
+```env
+LLM_PROVIDER=google
+LLM_MODEL=gemini-pro
+LLM_VISION_MODEL=gemini-pro-vision
+GOOGLE_API_KEY=your-actual-key
 ```
 
 **Important:** 
 - `.env` file is git-ignored (won't be committed)
-- Model names must exactly match `ollama list` output
-- Keep Ollama server running whenever generating tests
+- See [LLM_PROVIDER_GUIDE.md](LLM_PROVIDER_GUIDE.md) for all provider options
+- Test your setup: `python test_llm_providers.py`
 
 ---
 
@@ -556,26 +627,74 @@ A: 8
 
 ### Environment Variables (`.env` file)
 
+All configuration options are available in [.env.example](.env.example). Copy and customize for your provider:
+
+```bash
+cp .env.example .env
+```
+
+**Ollama (Local):**
 ```env
-# === REQUIRED SETTINGS ===
-
-# Ollama API endpoint (where AI models run)
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.2
+LLM_VISION_MODEL=llama3.2-vision
+LLM_CODING_MODEL=deepseek-coder:6.7b
 OLLAMA_BASE_URL=http://localhost:11434
+```
 
-# Text model for test case generation
-# Options: llama3.2, llama3.1, mistral, mixtral
+**OpenAI (Cloud):**
+```env
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4-turbo-preview
+LLM_VISION_MODEL=gpt-4-vision-preview
+LLM_CODING_MODEL=gpt-4-turbo-preview
+OPENAI_API_KEY=sk-your-actual-key
+OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, for proxies
+```
+
+**Anthropic Claude (Cloud):**
+```env
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-3-opus-20240229
+LLM_VISION_MODEL=claude-3-opus-20240229
+LLM_CODING_MODEL=claude-3-opus-20240229
+ANTHROPIC_API_KEY=sk-ant-your-actual-key
+```
+
+**Google Gemini (Cloud):**
+```env
+LLM_PROVIDER=google
+LLM_MODEL=gemini-pro
+LLM_VISION_MODEL=gemini-pro-vision
+LLM_CODING_MODEL=gemini-pro
+GOOGLE_API_KEY=your-actual-key
+```
+
+**Azure OpenAI (Cloud):**
+```env
+LLM_PROVIDER=azure
+LLM_MODEL=gpt-4
+LLM_VISION_MODEL=gpt-4-vision
+LLM_CODING_MODEL=gpt-4
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-actual-key
+AZURE_API_VERSION=2024-02-15-preview
+```
+
+**Legacy Ollama Configuration (Backward Compatible):**
+```env
+# Old variables still work, automatically converted to new format
+OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2
-
-# Vision model for analyzing screenshots (optional feature)
-# Options: llama3.2-vision, llava, bakllava
 VISION_MODEL=llama3.2-vision
-
-# Code model for generating Playwright automation
-# Options: deepseek-coder:6.7b, codellama:13b, starcoder2
 CODING_MODEL=deepseek-coder:6.7b
 ```
 
+For detailed setup instructions for each provider, see [LLM_PROVIDER_GUIDE.md](LLM_PROVIDER_GUIDE.md).
+
 ### Model Selection Guide
+
+**Ollama (Local):**
 
 | Model | Size | Speed | Quality | Best For |
 |-------|------|-------|---------|----------|
@@ -583,8 +702,36 @@ CODING_MODEL=deepseek-coder:6.7b
 | **llama3.1** | 4GB | Medium | Better | Complex applications |
 | **mistral** | 4GB | Fast | Good | Simple web apps |
 | **mixtral:8x7b** | 26GB | Slow | Excellent | Enterprise applications |
+| **deepseek-coder:6.7b** | 4GB | Medium | Excellent | Code generation |
 
-**Recommendation:** Start with `llama3.2`. Upgrade to `mistral` or `llama3.1` if test quality is insufficient.
+**OpenAI (Cloud):**
+
+| Model | Cost/1K tokens | Speed | Quality | Best For |
+|-------|----------------|-------|---------|----------|
+| **gpt-4-turbo** | $0.01/$0.03 | Fast | Excellent | Production use |
+| **gpt-4** | $0.03/$0.06 | Medium | Excellent | Complex test cases |
+| **gpt-3.5-turbo** | $0.0005/$0.0015 | Very Fast | Good | Budget-conscious |
+
+**Anthropic (Cloud):**
+
+| Model | Cost/1K tokens | Speed | Quality | Best For |
+|-------|----------------|-------|---------|----------|
+| **claude-3-opus** | $0.015/$0.075 | Medium | Excellent | Complex reasoning |
+| **claude-3-sonnet** | $0.003/$0.015 | Fast | Very Good | Balanced use |
+| **claude-3-haiku** | $0.00025/$0.00125 | Very Fast | Good | High volume |
+
+**Google (Cloud):**
+
+| Model | Cost/1K tokens | Speed | Quality | Best For |
+|-------|----------------|-------|---------|----------|
+| **gemini-pro** | Free (limited) | Fast | Very Good | Testing/prototyping |
+| **gemini-pro-vision** | Free (limited) | Fast | Very Good | Image analysis |
+
+**Recommendation:** 
+- **Development:** Ollama (llama3.2) - Free, private, no rate limits
+- **Production:** OpenAI (gpt-4-turbo) - Best quality/speed ratio
+- **Budget:** Google Gemini - Free tier available
+- **Enterprise:** Azure OpenAI - Dedicated capacity, SLA
 
 ### Browser Configuration
 
@@ -1065,37 +1212,71 @@ curl -fsSL https://ollama.ai/install.sh | sh
 
 ## 🐛 Troubleshooting
 
-### Issue 1: Ollama Connection Error
+### Issue 1: LLM Provider Connection Error
 
 **Symptoms:**
 ```
 requests.exceptions.ConnectionError: Connection refused
+Error: Failed to initialize LLM provider
 ```
 
-**Solutions:**
+**Solutions by Provider:**
 
-**Step 1:** Check Ollama status
+**Ollama:**
 ```bash
+# Step 1: Check Ollama status
 curl http://localhost:11434
 # Should return: Ollama is running
-```
 
-**Step 2:** Start Ollama if not running
-```bash
+# Step 2: Start Ollama if not running
 ollama serve
-# Keep terminal open
+
+# Step 3: Verify .env configuration
+cat .env | grep OLLAMA
 ```
 
-**Step 3:** Verify `.env` configuration
-```env
-OLLAMA_BASE_URL=http://localhost:11434  # Default port
-```
-
-**Step 4:** Check firewall
+**OpenAI:**
 ```bash
-# Allow port 11434
-sudo ufw allow 11434  # Linux
-# Or add exception in Windows Firewall
+# Step 1: Verify API key is set
+echo $OPENAI_API_KEY
+
+# Step 2: Test connection
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
+
+# Step 3: Check for rate limits
+# Wait 60 seconds if rate limited
+```
+
+**Google Gemini:**
+```bash
+# Step 1: Verify API key
+python -c "import os; print(os.getenv('GOOGLE_API_KEY'))"
+
+# Step 2: Test with sample request
+python test_llm_providers.py
+
+# Step 3: Check quota at https://makersuite.google.com/
+```
+
+**Anthropic:**
+```bash
+# Step 1: Verify API key format (should start with sk-ant-)
+echo $ANTHROPIC_API_KEY
+
+# Step 2: Test connection
+curl https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01"
+```
+
+**Azure OpenAI:**
+```bash
+# Step 1: Verify all Azure variables
+cat .env | grep AZURE
+
+# Step 2: Check endpoint format (should end with .openai.azure.com/)
+# Step 3: Verify deployment names match your Azure resource
 ```
 
 ---
@@ -1105,29 +1286,113 @@ sudo ufw allow 11434  # Linux
 **Symptoms:**
 ```
 Error: model 'llama3.2' not found
+Error: The model 'gpt-5' does not exist
 ```
 
 **Solutions:**
 
-**Step 1:** List installed models
+**Ollama:**
 ```bash
+# List installed models
 ollama list
-```
 
-**Step 2:** Install missing model
-```bash
+# Install missing model
 ollama pull llama3.2
-ollama pull llama3.2-vision
-ollama pull deepseek-coder:6.7b
+
+# Verify .env matches installed models
 ```
 
-**Step 3:** Verify `.env` matches installed models
-```bash
-# Check what's installed
-ollama list
+**OpenAI:**
+```env
+# Use only valid OpenAI models:
+LLM_MODEL=gpt-4-turbo-preview
+LLM_MODEL=gpt-4
+LLM_MODEL=gpt-3.5-turbo
+```
 
-# Update .env to match
-vim .env
+**Anthropic:**
+```env
+# Use only valid Claude models:
+LLM_MODEL=claude-3-opus-20240229
+LLM_MODEL=claude-3-sonnet-20240229
+LLM_MODEL=claude-3-haiku-20240307
+```
+
+**Google:**
+```env
+# Use only valid Gemini models:
+LLM_MODEL=gemini-pro
+LLM_VISION_MODEL=gemini-pro-vision
+```
+
+---
+
+### Issue 3: API Key Invalid or Expired
+
+**Symptoms:**
+```
+Error: Invalid API key
+AuthenticationError: 401 Unauthorized
+```
+
+**Solutions:**
+
+**OpenAI:**
+1. Get new key: https://platform.openai.com/api-keys
+2. Update .env: `OPENAI_API_KEY=sk-proj-...`
+3. Verify key: `python test_llm_providers.py`
+
+**Anthropic:**
+1. Get key: https://console.anthropic.com/settings/keys
+2. Update .env: `ANTHROPIC_API_KEY=sk-ant-...`
+3. Check key format (must start with `sk-ant-`)
+
+**Google:**
+1. Get key: https://makersuite.google.com/app/apikey
+2. Update .env: `GOOGLE_API_KEY=...`
+3. Enable Generative Language API if needed
+
+---
+
+### Issue 4: Rate Limit Exceeded
+
+**Symptoms:**
+```
+Error: Rate limit exceeded
+429 Too Many Requests
+```
+
+**Solutions:**
+
+**Immediate fix:**
+```bash
+# Wait 60 seconds, then retry
+sleep 60
+python cua_agent.py
+```
+
+**Long-term solutions:**
+
+| Provider | Free Tier Limits | Solution |
+|----------|------------------|----------|
+| **OpenAI** | 3 RPM (requests/min) | Upgrade to paid tier or use Ollama |
+| **Anthropic** | 5 RPM | Upgrade to paid tier |
+| **Google** | 60 RPM | Should be sufficient, wait if hit |
+| **Ollama** | No limits | Switch to Ollama for development |
+
+**Add retry logic:**
+```python
+# In cua_tools.py, wrap API calls with retry
+from time import sleep
+for attempt in range(3):
+    try:
+        response = provider.generate(prompt)
+        break
+    except RateLimitError:
+        if attempt < 2:
+            sleep(60)  # Wait 1 minute
+        else:
+            raise
 ```
 
 ---
@@ -1203,11 +1468,15 @@ ollama pull llama3.1:70b  # Requires 40GB RAM
 - Takes > 2 minutes per generation
 - System freezes
 
-**Solutions:**
+**Solutions by Provider:**
+
+**Ollama (Local):**
 
 **Option 1:** Use smaller/faster model
 ```bash
-ollama pull llama3.2:8b  # Faster than full model
+ollama pull llama3.2:8b  # Faster variant
+# Update .env
+LLM_MODEL=llama3.2:8b
 ```
 
 **Option 2:** Enable GPU acceleration
@@ -1217,23 +1486,48 @@ nvidia-smi  # For NVIDIA
 rocm-smi    # For AMD
 
 # Ollama automatically uses GPU if detected
+# GPU is 3-5x faster than CPU
 ```
 
 **Option 3:** Reduce element count
 ```python
 # Edit cua_tools.py
-# Line 550 and 575: Change from [:20] to [:10]
-elems_json = json.dumps(elements[:10], separators=(',', ':'))
+# Lines with json.dumps(elements[...])
+# Change from [:20] to [:10]
+```
+
+**Cloud Providers (OpenAI, Anthropic, Google):**
+
+**Option 1:** Use faster model tier
+```env
+# OpenAI: Switch to faster model
+LLM_MODEL=gpt-3.5-turbo  # Much faster than GPT-4
+
+# Anthropic: Switch to faster model
+LLM_MODEL=claude-3-haiku-20240307  # Much faster than Opus
+
+# Google: Already fast, no change needed
+```
+
+**Option 2:** Check network latency
+```bash
+# Test API response time
+curl -o /dev/null -s -w '%{time_total}\n' https://api.openai.com/v1/models
+
+# If > 2 seconds, check your internet connection
 ```
 
 **Performance Comparison:**
 
-| Configuration | Time | Quality |
-|---------------|------|---------|
-| llama3.2 + CPU + 20 elements | 60s | High |
-| llama3.2:8b + CPU + 20 elements | 30s | Medium |
-| llama3.2 + GPU + 20 elements | 15s | High |
-| llama3.2 + CPU + 10 elements | 40s | Medium |
+| Provider | Model | Hardware | Time |
+|----------|-------|----------|------|
+| Ollama | llama3.2 | CPU | 60s |
+| Ollama | llama3.2 | GPU | 15s |
+| OpenAI | gpt-4-turbo | Cloud | 10-20s |
+| OpenAI | gpt-3.5-turbo | Cloud | 5-10s |
+| Anthropic | claude-3-opus | Cloud | 15-25s |
+| Anthropic | claude-3-haiku | Cloud | 5-10s |
+| Google | gemini-pro | Cloud | 8-15s |
 
 ---
 
@@ -1407,32 +1701,76 @@ def test_functional(functional_test, playwright):
 
 **Q: Do I need internet for test generation?**
 
-A: Only during initial setup (downloading models). After that, everything runs locally offline.
+A: Depends on your LLM provider:
+- **Ollama:** No internet needed after initial model download (runs completely offline)
+- **OpenAI/Anthropic/Google/Azure:** Requires internet connection for API calls
+- **Hybrid:** Use Ollama for offline work, cloud providers for best quality
 
 ---
 
-**Q: How much disk space do AI models need?**
+**Q: How much disk space do I need?**
 
-A: ~10GB total:
-- `llama3.2`: 2GB
-- `llama3.2-vision`: 2GB
-- `deepseek-coder:6.7b`: 4GB
-- Plus ~2GB for dependencies and browsers
+A: Varies by provider:
+- **Ollama models:** ~10GB (llama3.2 + vision + deepseek)
+- **Cloud providers:** No local storage needed
+- **Playwright browser:** ~300MB
+- **Python dependencies:** ~200MB
+
+**Total:** 500MB (cloud only) or 10.5GB (with Ollama)
 
 ---
 
 **Q: Can I use different AI models?**
 
-A: Yes! Edit `.env`:
-```env
-# Use Mistral instead of LLaMA
-OLLAMA_MODEL=mistral
+A: Yes! Multiple options:
 
-# Use CodeLlama instead of DeepSeek
-CODING_MODEL=codellama:13b
+**Ollama:**
+```env
+LLM_MODEL=mistral
+LLM_MODEL=mixtral:8x7b
+LLM_MODEL=codellama:13b
+```
+See: [ollama.ai/library](https://ollama.ai/library)
+
+**OpenAI:**
+```env
+LLM_MODEL=gpt-4-turbo-preview
+LLM_MODEL=gpt-4
+LLM_MODEL=gpt-3.5-turbo
 ```
 
-Check available models: [ollama.ai/library](https://ollama.ai/library)
+**Anthropic:**
+```env
+LLM_MODEL=claude-3-opus-20240229
+LLM_MODEL=claude-3-sonnet-20240229
+LLM_MODEL=claude-3-haiku-20240307
+```
+
+---
+
+**Q: Is my data sent to external servers?**
+
+A: Depends on provider:
+- **Ollama:** All processing is local, nothing leaves your machine
+- **OpenAI/Anthropic/Google/Azure:** URLs and extracted elements sent to cloud APIs
+- **Recommendation:** Use Ollama for sensitive/internal applications
+
+---
+
+**Q: How much do cloud providers cost?**
+
+A: Typical costs per test generation (40 tests):
+
+| Provider | Model | Cost/Generation | Monthly (100 gens) |
+|----------|-------|-----------------|---------------------|
+| **Ollama** | Any | $0 | $0 |
+| **OpenAI** | gpt-4-turbo | ~$0.15 | ~$15 |
+| **OpenAI** | gpt-3.5-turbo | ~$0.01 | ~$1 |
+| **Anthropic** | claude-3-opus | ~$0.20 | ~$20 |
+| **Anthropic** | claude-3-haiku | ~$0.01 | ~$1 |
+| **Google** | gemini-pro | $0 (free tier) | $0 |
+
+**Recommendation:** Start with Ollama (free) or Google Gemini (free tier), upgrade to paid if quality insufficient.
 
 ---
 
@@ -1447,17 +1785,42 @@ Test execution is planned for v4.0.
 
 ---
 
-**Q: Is my data sent to external servers?**
+**Q: Which provider should I choose?**
 
-A: **No.** All AI processing happens locally via Ollama. Your URLs and data never leave your machine unless you configure a remote Ollama server.
+A: Decision matrix:
+
+| Scenario | Recommended Provider | Why |
+|----------|----------------------|-----|
+| **Development/Testing** | Ollama | Free, fast, private |
+| **Production/Best Quality** | OpenAI GPT-4 | Highest quality tests |
+| **Budget-Conscious** | Google Gemini | Free tier available |
+| **Enterprise/Compliance** | Azure OpenAI | SLA, dedicated capacity |
+| **Privacy-Critical** | Ollama | All data stays local |
+| **High Volume** | Anthropic Haiku | Low cost, fast |
+
+See [LLM_PROVIDER_GUIDE.md](LLM_PROVIDER_GUIDE.md) for detailed comparison.
 
 ---
 
 **Q: Can I use this in CI/CD pipelines?**
 
-A: **Yes!** Example GitHub Actions:
+A: **Yes!** Works with all providers:
+
+**With Ollama (self-hosted):**
 ```yaml
 - name: Generate Tests
+  run: |
+    ollama serve &
+    ollama pull llama3.2
+    echo "https://myapp.com" | python cua_agent.py
+```
+
+**With OpenAI (recommended for CI/CD):**
+```yaml
+- name: Generate Tests
+  env:
+    LLM_PROVIDER: openai
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   run: |
     echo "https://myapp.com" | python cua_agent.py
     cat generated_tests.json
@@ -1541,12 +1904,15 @@ MIT License - see [LICENSE](LICENSE) file
 ## 🔄 Changelog
 
 ### v3.0.0 (2025-01-15) - Current
+- ✅ **Multi-Provider LLM Support** - Works with Ollama, OpenAI, Anthropic, Google Gemini, Azure OpenAI
+- ✅ **Provider Abstraction Layer** - Unified interface for all LLM providers
 - ✅ Added NFR test generation (performance, security, accessibility)
 - ✅ Concurrent test generation (2x speed improvement)
 - ✅ Security enhancements (URL validation, code sanitization, path traversal protection)
 - ✅ Comprehensive docstrings with AI tool discovery metadata
 - ✅ Input validation and error handling
 - ✅ Connection pooling for HTTP requests (30-50% faster)
+- ✅ Backward compatibility with legacy Ollama configuration
 
 ### v2.0.0 (2024-12-20)
 - ✅ Added functional test generation
