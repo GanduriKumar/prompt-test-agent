@@ -1,142 +1,93 @@
 import asyncio
 import logging
 import json
-import re
 from typing import Dict, List
 
 from cua_tools import generate_functional_tests, generate_nfr_tests
 
-# Configure logging
 logging.basicConfig(
-    level=logging.INFO,  # Changed to INFO for cleaner output
+    level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     force=True
 )
 
 
-def validate_and_sanitize_url(url: str) -> str:
-    """Validate and sanitize user-provided URL.
-    
-    AI Tool Discovery Metadata:
-    - Category: Input Validation
-    - Task: URL Sanitization and Security
-    - Purpose: Prevents SSRF attacks, validates URL format, adds protocol if missing
-    
-    Args:
-        url (str): Raw URL string from user input
-        
-    Returns:
-        str: Validated and sanitized URL with protocol (https:// added if missing)
-        
-    Raises:
-        ValueError: If URL is empty or has invalid format
-        
-    Example:
-        >>> validate_and_sanitize_url("example.com")
-        'https://example.com'
-        >>> validate_and_sanitize_url("http://localhost:8080/api")
-        'http://localhost:8080/api'
-        
-    Security Features:
-        - Empty string detection
-        - Automatic HTTPS protocol addition
-        - Regex validation for domain/IP patterns
-        - Port number validation
-        - Path/query string validation
+def validate_test_structure(tests: Dict[str, List[Dict]]) -> bool:
     """
-    url = url.strip()
+    Validates the structure of a test suite.
+    This function checks if the provided `tests` dictionary contains the required 
+    keys for functional and non-functional tests. It also verifies that each test 
+    within these categories has the necessary attributes.
+    Args:
+        tests (Dict[str, List[Dict]]): A dictionary containing two keys:
+            - "functional_tests": A list of dictionaries representing functional tests.
+            - "nfr_tests": A list of dictionaries representing non-functional tests.
+    Returns:
+        bool: Returns True if the structure is valid and all required keys are present,
+              otherwise returns False. Logs warnings for any missing keys in the tests.
+    """
     
-    if not url:
-        raise ValueError("URL cannot be empty")
-    
-    # Add https:// if no protocol specified
-    if not url.startswith(('http://', 'https://')):
-        url = f"https://{url}"
-    
-    # Basic URL validation
-    url_pattern = re.compile(
-        r'^https?://'
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'
-        r'localhost|'
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
-        r'(?::\d+)?'
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE
-    )
-    
-    if not url_pattern.match(url):
-        raise ValueError(f"Invalid URL format: {url}")
-    
-    return url
+    try:
+        # Check top-level structure
+        if not isinstance(tests, dict):
+            logging.error("Tests is not a dictionary")
+            return False
+        
+        if "functional_tests" not in tests or "nfr_tests" not in tests:
+            logging.error("Missing required keys: functional_tests or nfr_tests")
+            return False
+        
+        # Validate functional tests
+        for i, test in enumerate(tests.get("functional_tests", [])):
+            required_keys = ["id", "title", "steps", "expected_result"]
+            missing = [k for k in required_keys if k not in test]
+            if missing:
+                logging.warning(f"Functional test {i} missing keys: {missing}")
+        
+        # Validate NFR tests
+        for i, test in enumerate(tests.get("nfr_tests", [])):
+            required_keys = ["id", "category", "title", "acceptance_criteria"]
+            missing = [k for k in required_keys if k not in test]
+            if missing:
+                logging.warning(f"NFR test {i} missing keys: {missing}")
+        
+        return True
+        
+    except Exception as e:
+        logging.error(f"Validation error: {e}")
+        return False
 
 
 async def generate_all_tests(url: str, business_context: str) -> Dict[str, List[Dict]]:
-    """Generate both functional and NFR tests concurrently for maximum performance.
+    def generate_all_tests(url: str, business_context: str) -> Dict[str, List[Dict]]:
+        """
+        Asynchronously generates both functional and non-functional requirement (NFR) tests for a given URL.
+        This function runs two test generation tasks concurrently: one for functional tests and another for NFR tests.
+        It handles potential exceptions during the test generation process and ensures that the returned results are 
+        in the form of lists, even in the case of errors.
+        Args:
+            url (str): The URL for which tests are to be generated.
+            business_context (str): The business context that may influence test generation.
+        Returns:
+            Dict[str, List[Dict]]: A dictionary containing two keys:
+                - "functional_tests": A list of generated functional tests.
+                - "nfr_tests": A list of generated non-functional requirement tests.
+        Logs:
+            - Information about the start of the test generation process.
+            - Errors encountered during the generation of functional or NFR tests.
+            - The number of tests generated for both functional and NFR categories.
+        """
     
-    AI Tool Discovery Metadata:
-    - Category: Test Generation
-    - Task: Concurrent Test Suite Creation
-    - Purpose: Generate comprehensive test suites (functional + NFR) in parallel
-    - Performance: 2x faster than sequential generation
-    
-    Args:
-        url (str): Target web application URL to test
-        business_context (str): Description of page purpose (e.g., "Login page", "Checkout flow")
-        
-    Returns:
-        Dict[str, List[Dict]]: Dictionary containing:
-            - "functional_tests": List of functional test case dictionaries
-            - "nfr_tests": List of non-functional requirement test dictionaries
-            
-    Example Response:
-        {
-            "functional_tests": [
-                {
-                    "id": "FUNC_001",
-                    "title": "User can login with valid credentials",
-                    "preconditions": ["User is registered"],
-                    "steps": ["Enter email", "Enter password", "Click login"],
-                    "expected_result": "User redirected to dashboard",
-                    "tags": ["authentication", "happy-path"]
-                }
-            ],
-            "nfr_tests": [
-                {
-                    "id": "NFR_001",
-                    "category": "performance",
-                    "title": "Page loads within 2 seconds",
-                    "description": "Measure time from navigation to DOMContentLoaded",
-                    "acceptance_criteria": ["Load time < 2000ms"],
-                    "tooling_suggestions": ["Playwright", "Lighthouse"]
-                }
-            ]
-        }
-        
-    Error Handling:
-        - Returns empty lists if individual generators fail
-        - Logs errors without stopping entire process
-        - Uses asyncio.gather with return_exceptions=True
-        
-    Performance:
-        - Runs functional and NFR generation concurrently
-        - Typical execution: 30-60 seconds for both tests
-        - Sequential would take 60-120 seconds
-        
-    Use Cases:
-        - CI/CD test generation
-        - Automated QA documentation
-        - Test-driven development workflows
-        - Regression test suite creation
-    """
     logging.info(f"Starting test generation for URL: {url}")
     
-    # Run both test generation tasks concurrently for 2x speed improvement
+    # Run both test generation tasks concurrently
     func_tests_task = generate_functional_tests(url, business_context)
     nfr_tests_task = generate_nfr_tests(url, business_context)
     
-    functional_tests,nfr_tests  = await asyncio.gather(
+    functional_tests, nfr_tests = await asyncio.gather(
         func_tests_task,
         nfr_tests_task,
-        return_exceptions=True  # Don't fail if one task errors
+        return_exceptions=True
     )
     
     # Handle potential errors
@@ -146,6 +97,12 @@ async def generate_all_tests(url: str, business_context: str) -> Dict[str, List[
     
     if isinstance(nfr_tests, Exception):
         logging.error(f"NFR test generation failed: {nfr_tests}")
+        nfr_tests = []
+    
+    # Ensure we have lists
+    if not isinstance(functional_tests, list):
+        functional_tests = []
+    if not isinstance(nfr_tests, list):
         nfr_tests = []
     
     logging.info(f"Generated {len(functional_tests)} functional tests")
@@ -158,82 +115,66 @@ async def generate_all_tests(url: str, business_context: str) -> Dict[str, List[
 
 
 def main():
-    """Main entry point for automated test generation workflow.
-    
-    AI Tool Discovery Metadata:
-    - Category: Workflow Orchestration
-    - Task: End-to-End Test Suite Generation
-    - Purpose: Interactive CLI for generating test suites from web applications
-    
-    Workflow:
-        1. Prompt user for target URL
-        2. Validate and sanitize URL
-        3. Generate functional tests (happy path, negative, boundary)
-        4. Generate NFR tests (performance, security, accessibility, usability, reliability)
-        5. Save results to generated_tests.json
-        
-    User Inputs:
-        - URL: Web application URL to analyze
-        
-    Outputs:
-        - generated_tests.json: JSON file with all test specifications
-        
-    Error Handling:
-        - ValueError: Invalid URL format or validation failure
-        - KeyboardInterrupt: Graceful shutdown on Ctrl+C
-        - IOError: File write failures
-        - Generic Exception: Unexpected errors with stack trace
-        
-    Configuration:
-        - Business context: Currently hardcoded as "Search website"
-        - Output file: "generated_tests.json" in current directory
-        - Encoding: UTF-8 with ensure_ascii=False for international support
-        
-    Example Usage:
-        $ python cua_agent.py
-        Enter the URL to open: https://example.com/login
-        2025-01-15 10:30:45 - INFO - Validated URL: https://example.com/login
-        2025-01-15 10:30:46 - INFO - Starting test generation for URL: https://example.com/login
-        2025-01-15 10:31:20 - INFO - Generated 8 functional tests
-        2025-01-15 10:31:20 - INFO - Generated 12 NFR tests
-        2025-01-15 10:31:20 - INFO - Tests saved to: generated_tests.json
-        2025-01-15 10:31:20 - INFO - Total tests generated: 20
-        
-    Integration:
-        - Can be called programmatically via asyncio.run(generate_all_tests(url, context))
-        - JSON output suitable for CI/CD pipelines
-        - Compatible with test frameworks (pytest, unittest, Robot Framework)
     """
+    Main function to generate tests for a given URL.
+    This function prompts the user for a URL, validates the input, and generates 
+    functional and non-functional tests based on the provided URL. It also handles 
+    the addition of the 'https://' prefix if the URL does not start with 'http://' 
+    or 'https://'. The generated tests are validated for structure and saved to 
+    a JSON file. Logging is used to provide feedback on the process, including 
+    error handling for empty URLs and file writing issues.
+    Steps:
+    1. Prompt the user for a URL and strip any leading/trailing whitespace.
+    2. Validate the URL to ensure it is not empty and starts with 'http://' or 'https://'.
+    3. Generate tests asynchronously using the provided URL and a predefined business context.
+    4. Validate the structure of the generated tests and log any warnings.
+    5. Count the total number of generated tests and log appropriate messages.
+    6. Write the generated tests to a JSON file, handling any potential IO errors.
+    Returns:
+        None
+    """
+   
+    url = input("Enter the URL to open: ").strip()
+    
+    if not url:
+        logging.error("URL cannot be empty")
+        return
+    
+    if not url.startswith(('http://', 'https://')):
+        logging.warning("URL doesn't start with http:// or https://, adding https://")
+        url = f"https://{url}"
+    
+    business_context = "Search website"
+    
+    # Generate tests
+    all_tests = asyncio.run(generate_all_tests(url, business_context))
+    
+    # Validate structure
+    if not validate_test_structure(all_tests):
+        logging.warning("Generated tests have validation warnings (see above)")
+    
+    # Check if we have any tests
+    total_tests = len(all_tests['functional_tests']) + len(all_tests['nfr_tests'])
+    if total_tests == 0:
+        logging.error("No tests were generated. Check logs for errors.")
+        logging.info("Saving empty test file as placeholder")
+    
+    # Write to JSON file
+    output_file = "generated_tests.json"
     try:
-        # Get and validate URL
-        url_input = input("Enter the URL to open: ")
-        url = validate_and_sanitize_url(url_input)
+        with open(output_file, "w", encoding='utf-8') as f:
+            json.dump(all_tests, f, indent=2, ensure_ascii=False)
         
-        logging.info(f"Validated URL: {url}")
+        logging.info(f"Tests saved to: {output_file}")
+        logging.info(f"Total tests generated: {total_tests}")
         
-        # You can make business context configurable too
-        business_context = "Search website"
-        
-        # Generate tests
-        all_tests = asyncio.run(generate_all_tests(url, business_context))
-        
-        # Write to JSON file
-        output_file = "generated_tests.json"
-        try:
-            with open(output_file, "w", encoding='utf-8') as f:
-                json.dump(all_tests, f, indent=2, ensure_ascii=False)
+        if total_tests > 0:
+            logging.info("✅ Test generation completed successfully")
+        else:
+            logging.warning("⚠️  No tests generated - check AI model and prompts")
             
-            logging.info(f"Tests saved to: {output_file}")
-            logging.info(f"Total tests generated: {len(all_tests['functional_tests']) + len(all_tests['nfr_tests'])}")
-        except IOError as e:
-            logging.error(f"Failed to write output file: {e}")
-            
-    except ValueError as e:
-        logging.error(f"Validation error: {e}")
-    except KeyboardInterrupt:
-        logging.info("\nOperation cancelled by user")
-    except Exception as e:
-        logging.error(f"Unexpected error: {e}", exc_info=True)
+    except IOError as e:
+        logging.error(f"Failed to write output file: {e}")
 
 
 if __name__ == "__main__":

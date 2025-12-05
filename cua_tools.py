@@ -1028,93 +1028,34 @@ def build_nfr_tests_prompt(
     business_context: str,
     nfr_expectations: Optional[Dict] = None
 ) -> str:
-    """Generate AI prompt for non-functional test case generation.
-    
-    AI Tool Discovery Metadata:
-    - Category: Prompt Engineering / Test Generation
-    - Task: NFR Test Prompt Construction
-    - Purpose: Build structured prompt for AI model to generate non-functional requirements (NFR) tests
-    - Test Types: Performance, reliability, security, usability, accessibility
-    
-    Args:
-        url (str): Target application URL for test context
-        elements (List[Dict]): Interactive UI elements (max 20 used)
-        business_context (str): Business domain and application description
-        nfr_expectations (Optional[Dict]): Known NFR requirements (e.g., load time, concurrency)
-        
-    Returns:
-        str: Formatted prompt string for Ollama API consumption
-        
-    Prompt Structure:
-        1. Role: "You are an expert QA architect specializing in non-functional testing"
-        2. Context: URL, business domain, interactive elements (first 20)
-        3. Known NFR expectations (JSON)
-        4. Task: Design test cases for performance, reliability, security, usability, accessibility
-        5. Output format: JSON schema with test objects
-        
-    Output JSON Schema:
-        ```json
-        {
-          "nfr": [
-            {
-              "id": "NFR_001",
-              "category": "performance",
-              "title": "Page loads within 2 seconds",
-              "description": "What the test does...",
-              "acceptance_criteria": ["criterion 1", "criterion 2"],
-              "tooling_suggestions": ["tool1", "tool2"]
-            }
-          ]
-        }
-        ```
-        
-    NFR Categories:
-        - performance: Load time, response time, throughput
-        - reliability: Uptime, error recovery, data integrity
-        - security: Authentication, authorization, encryption, input validation
-        - usability: UI/UX, navigation, error messages, help
-        - accessibility: WCAG compliance, screen readers, keyboard navigation
-        
-    Prompt Optimizations:
-        - Compact JSON (separators=(',', ':')) - reduces token count
-        - Limited to first 20 elements - prevents token overflow
-        - Explicit "JSON only" instruction - reduces verbose responses
-        - "No explanations outside JSON" - ensures parseable output
-        
-    Performance:
-        - Typical prompt size: 500-2000 tokens
-        - Element limit: 20 (from full list)
-        - JSON compaction: 20-30% size reduction
-        
-    Example Usage:
-        ```python
-        elements = await get_interactive_elements("https://example.com")
-        prompt = build_nfr_tests_prompt(
-            url="https://example.com",
-            elements=elements,
-            business_context="E-commerce checkout flow",
-            nfr_expectations={"page_load_time": "2s", "max_concurrent_users": 1000}
-        )
-        response = generate_final_output(CODING_MODEL, prompt)
-        ```
-        
-    Use Cases:
-        - Automated NFR test generation
-        - QA architecture documentation
-        - Performance baseline establishment
-        - Security audit planning
-        - Accessibility compliance testing
-        
-    Limitations:
-        - Limited to first 20 elements (may miss critical UI)
-        - Relies on AI model knowledge of NFR best practices
-        - JSON output quality depends on model capability
-        - No validation of generated test feasibility
-        
-    Tool Category: Prompt Engineering, NFR Testing, Test Case Generation, AI-Assisted QA
     """
-    # Use compact JSON formatting to reduce prompt size
-    elems_json = json.dumps(elements[:20], separators=(',', ':'))  # Limit to first 20 elements
+    Generates a prompt for building non-functional requirement (NFR) test cases.
+    This function constructs a detailed prompt that outlines the necessary 
+    information for creating exhaustive non-functional test cases for a given 
+    application. It includes the application URL, business context, interactive 
+    elements, and known NFR expectations. The output is formatted as a strict 
+    JSON object that specifies various NFR categories such as performance, 
+    reliability, security, usability, compatibility, scalability, maintainability, 
+    and compliance.
+    Parameters:
+    - url (str): The URL of the application under test.
+    - elements (List[Dict]): A list of interactive elements in the application, 
+        limited to the first 20 for the prompt.
+    - business_context (str): The business context in which the application operates.
+    - nfr_expectations (Optional[Dict]): A dictionary of known non-functional 
+        requirements expectations. Defaults to None if not provided.
+    Returns:
+    - str: A formatted string containing the prompt for generating NFR test cases 
+        in strict JSON format.
+    Notes:
+    - The output JSON must adhere to specific formatting rules, including proper 
+        quoting and escaping of strings, and must not contain any additional text 
+        outside the JSON structure.
+    - The function is designed to ensure comprehensive coverage across all NFR 
+        dimensions, generating multiple test cases per category with specific metrics 
+        and thresholds where applicable.
+    """
+    elems_json = json.dumps(elements[:20], separators=(',', ':'))
     expectations_json = json.dumps(nfr_expectations or {}, separators=(',', ':'))
     
     return f"""You are an expert QA architect specializing in comprehensive non-functional testing.
@@ -1123,39 +1064,48 @@ Application under test:
 - URL: {url}
 - Business context: {business_context}
 
-Interactive elements (all elements): {elems_json}
+Interactive elements (first 20): {elems_json}
 
 Known NFR expectations: {expectations_json}
 
-Design EXHAUSTIVE NON-FUNCTIONAL test cases covering:
-1. Performance (load time, response time, throughput, resource usage, scalability, caching)
-2. Reliability (uptime, error recovery, failover, data integrity, consistency, resilience)
-3. Security (authentication, authorization, encryption, injection prevention, XSS, CSRF, rate limiting, data protection)
-4. Usability (UI/UX, navigation, error messages, form validation feedback, accessibility of error states)
-5. Accessibility (WCAG 2.1 compliance, screen readers, keyboard navigation, color contrast, focus management)
-6. Compliance (GDPR, data retention, audit trails, regulatory requirements)
-7. Maintainability (code quality, technical debt, documentation, monitoring)
-8. Portability (cross-browser compatibility, mobile responsiveness, different OS support)
+Design EXHAUSTIVE NON-FUNCTIONAL test cases covering ALL dimensions:
+- PERFORMANCE: Load time, response time, throughput, resource utilization, caching, CDN effectiveness
+- RELIABILITY: Uptime, fault tolerance, recovery, error handling, data consistency, transaction integrity
+- SECURITY: Authentication, authorization, data encryption, injection attacks, CSRF, XSS, API security, SSL/TLS
+- USABILITY: Accessibility (WCAG 2.1 AA), responsive design, UI consistency, error messages, navigation clarity
+- COMPATIBILITY: Browser compatibility, device compatibility, OS compatibility, API backward compatibility
+- SCALABILITY: Concurrent users, database scaling, horizontal scaling, vertical scaling, rate limiting
+- MAINTAINABILITY: Code quality, documentation, logging, monitoring, deployment safety, rollback capability
+- COMPLIANCE: GDPR, HIPAA, CCPA, data retention, audit trails, regulatory requirements
 
-Generate EXHAUSTIVE and DIVERSE test cases covering all above categories with multiple scenarios per category.
+CRITICAL INSTRUCTIONS:
+1. Return ONLY valid JSON, nothing else
+2. All strings must be properly quoted and escaped
+3. Use double quotes for strings, not single quotes
+4. Ensure all arrays and objects are properly closed
+5. Do not include any explanatory text outside the JSON
+6. Generate at least 3-5 test cases per NFR category
+7. Include specific metrics and thresholds where applicable
+8. For security: list specific attack vectors to test
+9. For performance: include load profiles and expected baselines
 
-OUTPUT FORMAT (JSON only):
+OUTPUT FORMAT (strict JSON only):
 {{
   "nfr": [
     {{
       "id": "NFR_001",
-      "category": "performance|reliability|security|usability|accessibility|compliance|maintainability|portability",
-      "title": "Clear, specific test title",
-      "description": "Detailed description of what the test validates",
-      "acceptance_criteria": ["criterion 1", "criterion 2", "criterion 3"],
-      "tooling_suggestions": ["tool1", "tool2", "tool3"],
-      "priority": "high|medium|low",
-      "risk_level": "high|medium|low"
+      "category": "performance|reliability|security|usability|compatibility|scalability|maintainability|compliance",
+      "title": "Specific test title",
+      "description": "Detailed test description",
+      "acceptance_criteria": ["criterion1", "criterion2", "criterion3"],
+      "tooling_suggestions": ["tool1", "tool2"],
+      "metrics": {{"threshold": "value", "unit": "unit"}},
+      "priority": "critical|high|medium|low"
     }}
   ]
 }}
 
-Generate comprehensive, exhaustive, and diverse test cases. Aim for at least 50+ test cases covering all categories thoroughly. No explanations outside JSON."""
+Remember: ONLY output the JSON object above. Generate comprehensive, exhaustive test coverage across all NFR dimensions. No markdown, no explanations."""
 
 
 def build_functional_tests_prompt(
@@ -1163,238 +1113,113 @@ def build_functional_tests_prompt(
     elements: List[Dict],
     business_context: str
 ) -> str:
-    """Generate AI prompt for functional test case generation.
-    
-    AI Tool Discovery Metadata:
-    - Category: Prompt Engineering / Test Generation
-    - Task: Functional Test Prompt Construction
-    - Purpose: Build structured prompt for AI model to generate functional test cases
-    - Test Types: Happy path, negative cases, boundary tests, navigation flows
-    
-    Args:
-        url (str): Target application URL for test context
-        elements (List[Dict]): Interactive UI elements (max 20 used)
-        business_context (str): Business domain and application description
-        
-    Returns:
-        str: Formatted prompt string for Ollama API consumption
-        
-    Prompt Structure:
-        1. Role: "You are an expert software test engineer"
-        2. Context: URL, business domain, interactive elements (first 20)
-        3. Task: Design functional test cases covering happy path, negative cases, boundaries, navigation
-        4. Output format: JSON schema with test objects
-        
-    Output JSON Schema:
-        ```json
-        {
-          "functional": [
-            {
-              "id": "FUN_001",
-              "category": "happy_path",
-              "title": "User successfully logs in with valid credentials",
-              "preconditions": ["User is on login page"],
-              "steps": ["Enter email", "Enter password", "Click submit"],
-              "expected_result": "User redirected to dashboard",
-              "test_data": {"email": "test@example.com", "password": "validPass123"}
-            }
-          ]
-        }
-        ```
-        
-    Functional Test Categories:
-        - happy_path: Normal user flows with valid inputs
-        - negative: Error handling, invalid inputs, edge cases
-        - boundary: Min/max values, empty fields, special characters
-        - navigation: Page transitions, back button, deep links
-        
-    Prompt Optimizations:
-        - Compact JSON (separators=(',', ':')) - reduces token count
-        - Limited to first 20 elements - prevents token overflow
-        - Explicit "JSON only" instruction - reduces verbose responses
-        - "No explanations outside JSON" - ensures parseable output
-        
-    Performance:
-        - Typical prompt size: 500-2000 tokens
-        - Element limit: 20 (from full list)
-        - JSON compaction: 20-30% size reduction
-        
-    Example Usage:
-        ```python
-        elements = await get_interactive_elements("https://example.com/login")
-        prompt = build_functional_tests_prompt(
-            url="https://example.com/login",
-            elements=elements,
-            business_context="User authentication and login workflow"
-        )
-        response = generate_final_output(CODING_MODEL, prompt)
-        ```
-        
-    Use Cases:
-        - Automated functional test generation
-        - Test case documentation
-        - Regression test planning
-        - User story validation
-        - Acceptance criteria definition
-        
-    Limitations:
-        - Cover all elements (may miss critical UI)
-        - Relies on AI model knowledge of testing best practices
-        - JSON output quality depends on model capability
-        - No validation of generated test feasibility
-        - Test data may need manual review for realism
-        
-    Tool Category: Prompt Engineering, Functional Testing, Test Case Generation, AI-Assisted QA
     """
-    # Use compact JSON and limit elements
+    Generates a prompt for creating comprehensive functional test cases based on the provided application details.
+    Parameters:
+        url (str): The URL of the application under test.
+        elements (List[Dict]): A list of interactive elements in the application, represented as dictionaries.
+        business_context (str): The business context or scenario in which the application operates.
+    Returns:
+        str: A formatted string containing instructions for generating functional test cases in strict JSON format.
+    The generated prompt includes guidelines for covering various testing scenarios such as:
+    - Happy path scenarios
+    - Negative cases and error handling
+    - Boundary testing and edge cases
+    - Data validation requirements
+    - User interactions and navigation flows
+    - Error recovery mechanisms
+    - State management considerations
+    - Cross-browser functionality
+    - Accessibility compliance
+    The output format is strictly defined as a JSON object, ensuring that all test cases are structured and comprehensive.
+    """
     elems_json = json.dumps(elements[:20], separators=(',', ':'))
     
-    return f"""You are an expert software test engineer specializing in comprehensive test coverage.
+    return f"""You are an expert QA engineer specializing in comprehensive functional testing.
 
-Application: {url}
-Context: {business_context}
-Interactive elements (fall elements): {elems_json}
+Application under test:
+- URL: {url}
+- Business context: {business_context}
 
-Design EXHAUSTIVE FUNCTIONAL test cases covering:
-1. Happy path scenarios (normal user workflows)
-2. Negative cases (invalid inputs, error handling)
-3. Boundary conditions (min/max values, empty fields, special characters)
-4. Navigation flows (page transitions, deep links, back button)
-5. Data validation (format validation, type checking)
-6. State management (session handling, caching, data persistence)
-7. Error recovery (network failures, timeouts, retry logic)
-8. Security scenarios (input sanitization, XSS prevention, CSRF protection)
-9. Accessibility workflows (keyboard navigation, screen reader compatibility)
-10. Performance considerations (load times, responsiveness under load)
+Interactive elements (all elements): {elems_json}
 
-Generate EXHAUSTIVE diverse test cases covering all above categories.
+Design EXHAUSTIVE FUNCTIONAL test cases covering ALL scenarios:
+- HAPPY PATH: Primary user workflows, success scenarios, expected behaviors
+- NEGATIVE CASES: Invalid inputs, error handling, boundary violations, edge cases
+- BOUNDARY TESTING: Min/max values, empty fields, special characters, SQL injection attempts, XSS payloads
+- DATA VALIDATION: Required fields, format validation, length limits, type checking
+- USER INTERACTIONS: Form submission, navigation flows, button clicks, dropdown selections
+- ERROR RECOVERY: Retry mechanisms, error messages, fallback behaviors
+- STATE MANAGEMENT: Session persistence, data persistence, state transitions
+- CROSS-BROWSER: UI consistency, functionality across browsers (if applicable)
+- ACCESSIBILITY: Keyboard navigation, screen reader compatibility, ARIA labels
+- INTEGRATION: API calls, backend data sync, third-party service interactions
 
-OUTPUT FORMAT (JSON only):
+CRITICAL INSTRUCTIONS:
+1. Return ONLY valid JSON, nothing else
+2. All strings must be properly quoted and escaped
+3. Use double quotes for strings, not single quotes
+4. Ensure all arrays and objects are properly closed
+5. Do not include any explanatory text outside the JSON
+6. Generate at least 5-8 test cases per functional area
+7. Include both positive and negative test scenarios
+8. Cover edge cases, boundary conditions, and error paths
+9. For form elements: test validation, submission, and error states
+10. For navigation: test all links, buttons, and user flows
+
+OUTPUT FORMAT (strict JSON only):
 {{
   "functional": [
     {{
       "id": "FUNC_001",
-      "title": "Clear title",
-      "category": "happy_path|negative|boundary|navigation|validation|state|recovery|security|accessibility|performance",
-      "preconditions": ["list of prerequisites"],
-      "steps": ["detailed step 1", "detailed step 2", "step 3"],
-      "expected_result": "Expected outcome",
-      "tags": ["tag1", "tag2"],
-      "priority": "high|medium|low"
+      "title": "Specific test case title",
+      "description": "Detailed test description and purpose",
+      "preconditions": ["precondition1", "precondition2", "precondition3"],
+      "steps": ["step1", "step2", "step3", "step4"],
+      "expected_result": "Detailed expected outcome and assertion points",
+      "test_data": {{"input1": "value1", "input2": "value2"}},
+      "category": "happy_path|negative|boundary|validation|navigation|error_recovery|state|accessibility",
+      "tags": ["tag1", "tag2", "tag3"],
+      "priority": "critical|high|medium|low"
     }}
   ]
 }}
 
-Generate comprehensive and exhaustive test cases. No explanations outside JSON."""
+Remember: ONLY output the JSON object above. Generate exhaustive, comprehensive functional test coverage. No markdown, no explanations."""
 
 
 async def generate_functional_tests(url: str, business_context: str) -> List[Dict]:
-    """Generate functional test cases using AI model based on URL and business context.
-    
-    AI Tool Discovery Metadata:
-    - Category: Test Generation / AI-Assisted QA
-    - Task: Functional Test Case Generation
-    - Purpose: Generate complete functional test cases by analyzing UI elements and business context
-    - Model: deepseek-coder:6.7b (Ollama local inference)
-    
-    Args:
-        url (str): Target application URL to analyze and test
-        business_context (str): Business domain and application description for context
-        
-    Returns:
-        List[Dict]: List of functional test case dictionaries, each containing:
-            - id (str): Unique test identifier (e.g., "FUNC_001")
-            - title (str): Human-readable test title
-            - preconditions (List[str]): Prerequisites before test execution
-            - steps (List[str]): Ordered test execution steps
-            - expected_result (str): Expected outcome after execution
-            - tags (List[str]): Test categorization tags
-            
-    Example Return:
-        ```python
-        [
-            {
-                "id": "FUNC_001",
-                "title": "User successfully logs in with valid credentials",
-                "preconditions": ["User is on login page", "User has valid account"],
-                "steps": [
-                    "Enter valid email address",
-                    "Enter valid password",
-                    "Click 'Login' button"
-                ],
-                "expected_result": "User redirected to dashboard with welcome message",
-                "tags": ["authentication", "login", "happy_path"]
-            }
-        ]
-        ```
-        
-    Process:
-        1. Extracts interactive UI elements from URL (get_interactive_elements)
-        2. Builds AI prompt with elements and business context
-        3. Sends prompt to Ollama API (generate_final_output)
-        4. Cleans response (removes code fences, markdown)
-        5. Parses JSON response
-        6. Returns test cases array or empty list on error
-        
-    Test Generation Pipeline:
-        URL → get_interactive_elements() → build_functional_tests_prompt() → 
-        generate_final_output() → JSON parsing → Test cases
-        
-    Performance:
-        - Element extraction: 5-10 seconds (browser automation)
-        - AI inference: 10-30 seconds (depends on model load)
-        - Total: 15-40 seconds typical
-        
-    Security:
-        - URL validated by get_interactive_elements()
-        - No code execution (output is JSON data)
-        - Safe for untrusted URLs
-        
-    Error Handling:
-        - json.JSONDecodeError: Returns empty list [] if AI output is not valid JSON
-        - Logs first 200 chars of raw output for debugging
-        - Logs JSON decode errors with full context
-        - ValueError: From get_interactive_elements if URL invalid
-        
-    Response Cleaning:
-        - Removes triple quotes (''')
-        - Removes code fences (```json, ```)
-        - Strips whitespace
-        - Ensures parseable JSON
-        
-    Use Cases:
-        - Automated test case generation for new features
-        - Regression test planning
-        - QA documentation automation
-        - Test coverage gap analysis
-        - User story validation
-        
-    Limitations:
-        - Limited to first 20 UI elements (from prompt builder)
-        - Test quality depends on AI model capability
-        - May generate infeasible tests (requires review)
-        - No test execution or validation
-        - Business context must be descriptive for quality output
-        
-    Tool Category: AI Test Generation, Functional Testing, Automated QA, Ollama Integration
     """
+    Generates functional tests based on the provided URL and business context.
+    This asynchronous function retrieves interactive elements from the specified URL,
+    builds a prompt for generating functional tests, and then parses the resulting JSON
+    response to extract the functional test specifications.
+    Args:
+        url (str): The URL of the application or service for which to generate tests.
+        business_context (str): The business context or scenario that the tests should consider.
+    Returns:
+        List[Dict]: A list of functional test specifications, where each specification is represented
+        as a dictionary. If parsing fails, an empty list is returned.
+    Raises:
+        Exception: Raises an exception if there is an issue with generating or parsing the tests.
+    """
+   
     elements = await get_interactive_elements(url)
     prompt = build_functional_tests_prompt(url, elements, business_context)
     
     logging.debug("Generating functional tests with prompt")
     raw = generate_final_output(prompt)
     
-    # Clean up response
-    raw = raw.replace("'''", "").replace('```json', '').replace('```', '').strip()
+    logging.debug(f"Functional Raw Output (first 500 chars): {raw[:500]}...")
     
-    logging.debug(f"Functional Raw Output: {raw[:200]}...")  # Log only first 200 chars
+    # Use robust JSON parser
+    test_spec = parse_json_response(raw)
     
-    try:
-        test_spec = json.loads(raw)
-        return test_spec.get("functional", [])
-    except json.JSONDecodeError as e:
-        logging.error(f"JSON decode error: {e}\nRaw output: {raw}")
+    if test_spec is None:
+        logging.error("Failed to parse functional tests JSON")
         return []
+    
+    return test_spec.get("functional", [])
 
 
 async def generate_nfr_tests(
@@ -1402,110 +1227,20 @@ async def generate_nfr_tests(
     business_context: str,
     nfr_expectations: Optional[Dict] = None
 ) -> List[Dict]:
-    """Generate non-functional requirement (NFR) test cases using AI model.
-    
-    AI Tool Discovery Metadata:
-    - Category: Test Generation / NFR Testing
-    - Task: Non-Functional Test Case Generation
-    - Purpose: Generate NFR test cases covering performance, security, reliability, usability, accessibility
-    - Model: deepseek-coder:6.7b (Ollama local inference)
-    
+    """
+    Generates Non-Functional Requirement (NFR) tests based on the provided URL and business context.
+    This asynchronous function retrieves interactive elements from a specified URL, constructs a prompt 
+    for generating NFR tests, and processes the output to return a list of NFR test specifications.
     Args:
-        url (str): Target application URL to analyze and test
-        business_context (str): Business domain and application description
-        nfr_expectations (Optional[Dict]): Known NFR requirements (e.g., {"page_load_time": "2s"})
-        
+        url (str): The URL of the application or service for which NFR tests are to be generated.
+        business_context (str): The business context that provides additional information for generating tests.
+        nfr_expectations (Optional[Dict], optional): A dictionary of specific NFR expectations to consider 
+            during test generation. Defaults to None.
     Returns:
-        List[Dict]: List of NFR test case dictionaries, each containing:
-            - id (str): Unique test identifier (e.g., "NFR_001")
-            - category (str): NFR category (performance, security, reliability, usability, accessibility)
-            - title (str): Human-readable test title
-            - description (str): Detailed test description
-            - acceptance_criteria (List[str]): Success criteria
-            - tooling_suggestions (List[str]): Recommended testing tools
-            
-    Example Return:
-        ```python
-        [
-            {
-                "id": "NFR_001",
-                "category": "performance",
-                "title": "Page loads within 2 seconds under normal load",
-                "description": "Measure page load time from navigation to DOMContentLoaded event",
-                "acceptance_criteria": [
-                    "Page load time < 2 seconds for 95th percentile",
-                    "Time to First Byte (TTFB) < 500ms",
-                    "First Contentful Paint (FCP) < 1 second"
-                ],
-                "tooling_suggestions": ["Lighthouse", "WebPageTest", "Playwright performance API"]
-            },
-            {
-                "id": "NFR_002",
-                "category": "security",
-                "title": "Login form prevents SQL injection attacks",
-                "description": "Test login form with SQL injection payloads",
-                "acceptance_criteria": [
-                    "No database errors returned to user",
-                    "Invalid credentials message shown for injection attempts",
-                    "All inputs properly sanitized"
-                ],
-                "tooling_suggestions": ["OWASP ZAP", "Burp Suite", "SQLMap"]
-            }
-        ]
-        ```
-        
-    Process:
-        1. Extracts interactive UI elements from URL
-        2. Builds AI prompt with elements, context, and expectations
-        3. Sends prompt to Ollama API
-        4. Cleans response (removes code fences, markdown)
-        5. Parses JSON response
-        6. Returns NFR test cases array or empty list on error
-        
-    NFR Test Categories Generated:
-        - performance: Load time, response time, throughput, resource usage
-        - reliability: Uptime, error recovery, failover, data integrity
-        - security: Authentication, authorization, encryption, injection prevention
-        - usability: UI/UX, navigation, error handling, help documentation
-        - accessibility: WCAG compliance, screen reader support, keyboard navigation
-        
-    Performance:
-        - Element extraction: 5-10 seconds
-        - AI inference: 10-30 seconds
-        - Total: 15-40 seconds typical
-        
-    Security:
-        - URL validated by get_interactive_elements()
-        - No code execution (output is JSON data)
-        - Safe for untrusted URLs
-        
-    Error Handling:
-        - json.JSONDecodeError: Returns empty list [] if AI output is not valid JSON
-        - Logs first 200 chars of raw output for debugging
-        - Logs JSON decode errors with full context
-        - ValueError: From get_interactive_elements if URL invalid
-        
-    Response Cleaning:
-        - Removes triple quotes (''')
-        - Removes code fences (```json, ```)
-        - Strips whitespace
-        - Ensures parseable JSON
-        
-    Use Cases:
-        - Performance baseline establishment
-        - Security audit planning
-        - Accessibility compliance testing
-        - SLA/SLO definition
-        - NFR requirement documentation
-        
-    Limitations:
-        - Limited to first 20 UI elements (from prompt builder)
-        - Test quality depends on AI model knowledge
-        - May suggest unrealistic performance targets
-        - Tool suggestions may not match infrastructure
-        - Requires domain expertise to validate output
-        
-    Tool Category: AI Test Generation, NFR Testing, Automated QA, Performance Testing, Security Testing
+        List[Dict]: A list of dictionaries containing the generated NFR test specifications. 
+            Returns an empty list if the JSON response cannot be parsed or if no NFR tests are found.
+    Raises:
+        Exception: Raises an exception if there is an error in generating or parsing the NFR tests.
     """
     elements = await get_interactive_elements(url)
     prompt = build_nfr_tests_prompt(url, elements, business_context, nfr_expectations)
@@ -1513,17 +1248,16 @@ async def generate_nfr_tests(
     logging.debug("Generating NFR tests with prompt")
     raw = generate_final_output(prompt)
     
-    # Clean up response
-    raw = raw.replace("'''", "").replace('```json', '').replace('```', '').strip()
+    logging.debug(f"NFR Raw Output (first 500 chars): {raw[:500]}...")
     
-    logging.debug(f"NFR Raw Output: {raw[:200]}...")  # Log only first 200 chars
+    # Use robust JSON parser
+    test_spec = parse_json_response(raw)
     
-    try:
-        test_spec = json.loads(raw)
-        return test_spec.get("nfr", [])
-    except json.JSONDecodeError as e:
-        logging.error(f"JSON decode error: {e}\nRaw output: {raw}")
+    if test_spec is None:
+        logging.error("Failed to parse NFR tests JSON")
         return []
+    
+    return test_spec.get("nfr", [])
 
 
 def generate_final_output(prompt: str) -> str:
@@ -1641,3 +1375,103 @@ def generate_final_output(prompt: str) -> str:
     except Exception as e:
         logging.error(f"LLM API request failed: {e}")
         raise ValueError(f"Failed to generate output: {e}")
+
+
+import re
+from typing import Optional
+
+def parse_json_response(raw: str, max_attempts: int = 3) -> Optional[dict]:
+    """
+    Parse JSON response from AI model with error recovery.
+    
+    Args:
+        raw: Raw response string from AI model
+        max_attempts: Number of cleaning attempts before giving up
+    
+    Returns:
+        Parsed JSON dict or None if parsing fails
+    """
+    for attempt in range(max_attempts):
+        try:
+            # Attempt 1: Direct parsing
+            if attempt == 0:
+                cleaned = raw.strip()
+            
+            # Attempt 2: Remove markdown code fences
+            elif attempt == 1:
+                cleaned = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
+                cleaned = re.sub(r'\s*```$', '', cleaned, flags=re.MULTILINE)
+                cleaned = cleaned.strip()
+            
+            # Attempt 3: Extract JSON object/array
+            elif attempt == 2:
+                # Find first { or [ and last } or ]
+                start = min(
+                    raw.find('{') if raw.find('{') != -1 else len(raw),
+                    raw.find('[') if raw.find('[') != -1 else len(raw)
+                )
+                end = max(raw.rfind('}'), raw.rfind(']'))
+                
+                if start < end:
+                    cleaned = raw[start:end + 1]
+                else:
+                    cleaned = raw
+            
+            # Try parsing
+            result = json.loads(cleaned)
+            logging.debug(f"Successfully parsed JSON on attempt {attempt + 1}")
+            return result
+            
+        except json.JSONDecodeError as e:
+            logging.debug(f"Parse attempt {attempt + 1} failed: {e}")
+            
+            # On last attempt, try to fix common issues
+            if attempt == max_attempts - 1:
+                try:
+                    # Fix unterminated strings by finding incomplete quotes
+                    fixed = fix_unterminated_strings(cleaned)
+                    result = json.loads(fixed)
+                    logging.warning("Recovered from malformed JSON using string fixing")
+                    return result
+                except:
+                    logging.error(f"All parse attempts failed. Raw: {raw[:500]}...")
+                    return None
+            
+            continue
+    
+    return None
+
+
+def fix_unterminated_strings(json_str: str) -> str:
+    """
+    Attempt to fix unterminated string literals in JSON.
+    
+    Args:
+        json_str: Potentially malformed JSON string
+    
+    Returns:
+        Fixed JSON string
+    """
+    lines = json_str.split('\n')
+    fixed_lines = []
+    
+    for i, line in enumerate(lines):
+        # Check if line has odd number of unescaped quotes (likely unterminated)
+        unescaped_quotes = len(re.findall(r'(?<!\\)"', line))
+        
+        if unescaped_quotes % 2 != 0:
+            # Line has unterminated string - try to close it
+            # Look for common patterns
+            if line.rstrip().endswith(','):
+                # Already has comma, just add closing quote
+                fixed_line = line.rstrip()[:-1] + '",'
+            else:
+                # Add closing quote
+                fixed_line = line.rstrip() + '"'
+            
+            logging.debug(f"Fixed line {i}: {line.strip()[:50]}... -> {fixed_line.strip()[:50]}...")
+            fixed_lines.append(fixed_line)
+        else:
+            fixed_lines.append(line)
+    
+    return '\n'.join(fixed_lines)
