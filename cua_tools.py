@@ -9,17 +9,24 @@ from pathlib import Path
 from typing import Optional, Dict, List, Tuple
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright, Browser, Page
+from llm_provider import LLMProvider, get_llm_provider
 
 # Load environment variables once at module level
 load_dotenv()
-OLLAMA_HOST = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
-VISION_MODEL = os.getenv("VISION_MODEL", "llama3.2-vision")
-CODING_MODEL = os.getenv("CODING_MODEL", "deepseek-coder:6.7b")
 
-# Validate environment variables
-if not OLLAMA_HOST.startswith(("http://", "https://")):
-    raise ValueError("OLLAMA_BASE_URL must start with http:// or https://")
+# Initialize LLM provider (supports Ollama, OpenAI, Anthropic, Google, Azure)
+# Configure via environment variables:
+#   LLM_PROVIDER: 'ollama', 'openai', 'anthropic', 'google', 'azure'
+#   LLM_MODEL: Main model for text generation
+#   LLM_VISION_MODEL: Model for vision tasks
+#   LLM_CODING_MODEL: Model for code generation
+# Legacy environment variables for backward compatibility:
+#   OLLAMA_BASE_URL, OLLAMA_MODEL, VISION_MODEL, CODING_MODEL
+try:
+    llm_provider = get_llm_provider()
+except Exception as e:
+    logging.warning(f"Failed to initialize LLM provider: {e}. Will attempt on first use.")
+    llm_provider = None
 
 # Configure logging once
 logging.basicConfig(
@@ -517,8 +524,8 @@ def extract_elements_from_image(encoded_image: str) -> str:
     AI Tool Discovery Metadata:
     - Category: Vision AI / UI Element Extraction
     - Task: Image-Based Element Detection
-    - Purpose: Use AI vision model (llama3.2-vision) to extract HTML elements from screenshot
-    - Model: llama3.2-vision (Ollama local inference)
+    - Purpose: Use AI vision model to extract HTML elements from screenshot
+    - Model: Configurable via LLM_VISION_MODEL environment variable (supports multiple providers)
     
     Args:
         encoded_image (str): Base64-encoded image string (from encode_file_to_base64)
@@ -606,25 +613,12 @@ def extract_elements_from_image(encoded_image: str) -> str:
         "and return them as a JSON array of objects with 'tag', 'id', 'class', and 'text' fields."
     )
     
-    payload = {
-        "model": VISION_MODEL,
-        "prompt": prompt,
-        "stream": False,
-        "images": [encoded_image],
-        "format": "json",
-    }
-    
     try:
-        session = get_session()
-        response = session.post(
-            f"{OLLAMA_HOST}/api/generate",
-            json=payload,
-            timeout=REQUEST_TIMEOUT
-        )
-        response.raise_for_status()
-        return response.json().get("response", "")
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Ollama API request failed: {e}")
+        provider = get_llm_provider()
+        response = provider.generate_vision(prompt, encoded_image, format="json")
+        return response
+    except Exception as e:
+        logging.error(f"Vision API request failed: {e}")
         raise ValueError(f"Failed to extract elements: {e}")
 
 
@@ -634,8 +628,8 @@ def generate_automation_code(vision_elements: Dict, url: str) -> str:
     AI Tool Discovery Metadata:
     - Category: Code Generation / AI-Assisted Automation
     - Task: Playwright Code Generation
-    - Purpose: Use AI model (deepseek-coder:6.7b) to generate Playwright automation code from UI elements
-    - Model: deepseek-coder:6.7b (Ollama local inference)
+    - Purpose: Use AI coding model to generate Playwright automation code from UI elements
+    - Model: Configurable via LLM_CODING_MODEL environment variable (supports multiple providers)
     
     Args:
         vision_elements (Dict): Dictionary of UI elements extracted from screenshot/DOM
@@ -719,30 +713,19 @@ def generate_automation_code(vision_elements: Dict, url: str) -> str:
     
     logging.debug("Generating automation code for vision elements")
     
-    payload = {
-        "model": CODING_MODEL,
-        "prompt": (
-            f"You are an automation agent. The user interface contains: {vision_elements}. "
-            f"Generate Python Playwright code to fill out the search box in the url {url} "
-            f"with the string 'AI based automation' and select the search button.\n"
-            f"IMPORTANT: Only use these Playwright methods: page.fill(), page.click(), page.wait_for_selector()\n"
-            f"Do NOT use: eval, exec, open, os, sys, subprocess, import, or any file operations.\n"
-            f"Output only the Python code for the actions, no explanation.\n"
-            f"Provide only the code without any explanations."
-        ),
-        "stream": False
-    }
+    prompt = (
+        f"You are an automation agent. The user interface contains: {vision_elements}. "
+        f"Generate Python Playwright code to fill out the search box in the url {url} "
+        f"with the string 'AI based automation' and select the search button.\n"
+        f"IMPORTANT: Only use these Playwright methods: page.fill(), page.click(), page.wait_for_selector()\n"
+        f"Do NOT use: eval, exec, open, os, sys, subprocess, import, or any file operations.\n"
+        f"Output only the Python code for the actions, no explanation.\n"
+        f"Provide only the code without any explanations."
+    )
     
     try:
-        session = get_session()
-        response = session.post(
-            f"{OLLAMA_HOST}/api/generate",
-            json=payload,
-            timeout=REQUEST_TIMEOUT
-        )
-        response.raise_for_status()
-        
-        automation_code = response.json().get("response", "")
+        provider = get_llm_provider()
+        automation_code = provider.generate_code(prompt, max_tokens=2048, temperature=0.3)
         
         # Clean up code fences
         lines = automation_code.strip().splitlines()
@@ -759,7 +742,7 @@ def generate_automation_code(vision_elements: Dict, url: str) -> str:
             code_file.write(sanitized_code)
         
         return sanitized_code
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         logging.error(f"Code generation API request failed: {e}")
         raise ValueError(f"Failed to generate automation code: {e}")
 
@@ -1544,13 +1527,13 @@ async def generate_nfr_tests(
 
 
 def generate_final_output(prompt: str) -> str:
-    """Generate AI response from Ollama API using specified model.
+    """Generate AI response using configured LLM provider.
     
     AI Tool Discovery Metadata:
     - Category: AI Integration / API Wrapper
-    - Task: Ollama API Request Handler
-    - Purpose: Send prompts to Ollama local AI model and return JSON responses
-    - Model: llama3.2 (configurable via OLLAMA_MODEL constant)
+    - Task: Multi-Provider LLM Request Handler
+    - Purpose: Send prompts to configured LLM provider and return JSON responses
+    - Model: Configurable via LLM_MODEL environment variable (supports Ollama, OpenAI, Anthropic, Google, Azure)
     
     Args:
         prompt (str): Text prompt for AI model (max 50,000 chars)
@@ -1651,22 +1634,10 @@ def generate_final_output(prompt: str) -> str:
         logging.warning(f"Prompt truncated from {len(prompt)} to 50000 characters")
         prompt = prompt[:50000]
     
-    payload = {
-        "model": OLLAMA_MODEL,
-        "prompt": prompt,
-        "stream": False,
-        "format": "json",
-    }
-    
     try:
-        session = get_session()
-        response = session.post(
-            f"{OLLAMA_HOST}/api/generate",
-            json=payload,
-            # timeout=REQUEST_TIMEOUT
-        )
-        response.raise_for_status()
-        return response.json().get("response", "")
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Ollama API request failed: {e}")
+        provider = get_llm_provider()
+        response = provider.generate(prompt, format="json", max_tokens=4096, temperature=0.7)
+        return response
+    except Exception as e:
+        logging.error(f"LLM API request failed: {e}")
         raise ValueError(f"Failed to generate output: {e}")

@@ -1,10 +1,11 @@
 # Prompt Test Agent
 
-> **AI-powered test generation framework that automatically creates comprehensive test suites from any web page using local AI models.**
+> **AI-powered test generation framework that automatically creates comprehensive test suites from any web page using AI models.**
 
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Playwright](https://img.shields.io/badge/Playwright-1.56-green.svg)](https://playwright.dev/)
+[![Multi-Provider](https://img.shields.io/badge/LLM-Multi--Provider-brightgreen.svg)](LLM_PROVIDER_GUIDE.md)
 
 ## 🎯 What Does This Do?
 
@@ -24,38 +25,198 @@ Prompt Test Agent analyzes your web application and **automatically generates co
 ### Key Features
 
 - 🚀 **No manual test writing** - Just provide a URL, get JSON test specifications
-- 🔒 **100% Local AI** - All processing happens on your machine (no data sent to cloud)
-- ⚡ **Fast generation** - Concurrent processing generates both test types in 30-60 seconds
+- 🌐 **Multi-Provider Support** - Choose between Ollama (local), OpenAI, Anthropic, Google, or Azure
+- 💰 **Flexible pricing** - Free local models or premium cloud services
+- ⚡ **Fast generation** - Concurrent processing generates both test types in 10-60 seconds
 - 📊 **Structured output** - JSON format ready for CI/CD integration
 - 🛡️ **Security-first** - Built-in protection against SSRF, path traversal, code injection
+
+### Supported LLM Providers
+
+| Provider | Type | Cost | Quality | Setup |
+|----------|------|------|---------|-------|
+| 🦙 **Ollama** | Local | Free | Good | Medium |
+| 🤖 **OpenAI** | Cloud | $$$ | Excellent | Easy |
+| 🎭 **Anthropic** | Cloud | $$$ | Excellent | Easy |
+| 🔍 **Google** | Cloud | $ | Good | Easy |
+| ☁️ **Azure** | Cloud | $$$ | Excellent | Medium |
+
+See [LLM Provider Guide](LLM_PROVIDER_GUIDE.md) for detailed comparison and setup instructions.
 
 ---
 
 ## 📋 Table of Contents
 
 1. [Quick Start](#-quick-start)
-2. [Installation](#-installation)
-3. [Usage Guide](#-usage-guide)
-4. [Configuration](#-configuration)
-5. [Understanding the Output](#-understanding-the-output)
-6. [API Reference](#-api-reference)
-7. [Security Features](#-security-features)
-8. [Troubleshooting](#-troubleshooting)
-9. [Advanced Usage](#-advanced-usage)
-10. [FAQ](#-faq)
+2. [LLM Provider Setup](#-llm-provider-setup)
+3. [Installation](#-installation)
+4. [Usage Guide](#-usage-guide)
+5. [Configuration](#-configuration)
+6. [Understanding the Output](#-understanding-the-output)
+7. [API Reference](#-api-reference)
+8. [Security Features](#-security-features)
+9. [Troubleshooting](#-troubleshooting)
+10. [Advanced Usage](#-advanced-usage)
+11. [FAQ](#-faq)
 
 ---
 
 ## 🚀 Quick Start
 
-### What You'll Need
+### Choose Your LLM Provider
 
-- ✅ **Python 3.8+** installed on your system
-- ✅ **10GB free disk space** (for AI models)
-- ✅ **Ollama** running locally (instructions below)
-- ✅ **5 minutes** for setup
+**Option 1: Ollama (Free, Local)**
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
 
-### Installation (One-Time Setup)
+# Download models
+ollama pull llama3.2
+ollama pull llama3.2-vision
+ollama pull deepseek-coder:6.7b
+
+# Configure
+cat > .env << EOF
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.2
+EOF
+```
+
+**Option 2: OpenAI (Best Quality)**
+```bash
+# Configure
+cat > .env << EOF
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4-turbo-preview
+OPENAI_API_KEY=sk-your-key-here
+EOF
+```
+
+**Option 3: Google Gemini (Free Tier)**
+```bash
+# Configure
+cat > .env << EOF
+LLM_PROVIDER=google
+LLM_MODEL=gemini-pro
+GOOGLE_API_KEY=your-key-here
+EOF
+```
+
+See [LLM_PROVIDER_GUIDE.md](LLM_PROVIDER_GUIDE.md) for all providers and detailed setup.
+
+---
+
+## 🤖 LLM Provider Setup
+
+The tool supports multiple LLM providers. Choose the one that fits your needs:
+
+### Quick Comparison
+
+| Provider | Speed | Cost | Quality | Privacy | Setup |
+|----------|-------|------|---------|---------|-------|
+| Ollama | Medium-Slow | Free | Good | 100% Private | Medium |
+| OpenAI GPT-4 | Fast | $$$ | Excellent | Cloud | Easy |
+| Anthropic Claude | Fast | $$$ | Excellent | Cloud | Easy |
+| Google Gemini | Fast | Free tier | Good | Cloud | Easy |
+| Azure OpenAI | Fast | $$$ | Excellent | Enterprise | Medium |
+
+### Ollama (Recommended for Getting Started)
+
+**Pros:** Free, private, no API keys needed  
+**Cons:** Slower, requires local resources
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh  # Linux/Mac
+# or download from https://ollama.ai for Windows
+
+# Start server
+ollama serve
+
+# Download models
+ollama pull llama3.2
+ollama pull llama3.2-vision
+ollama pull deepseek-coder:6.7b
+
+# Configure .env
+echo "LLM_PROVIDER=ollama" > .env
+echo "LLM_MODEL=llama3.2" >> .env
+```
+
+### OpenAI (Recommended for Production)
+
+**Pros:** Best quality, fast, reliable  
+**Cons:** Costs ~$0.30 per test generation
+
+```bash
+# Get API key from https://platform.openai.com/api-keys
+
+# Configure .env
+cat > .env << EOF
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4-turbo-preview
+LLM_VISION_MODEL=gpt-4-vision-preview
+OPENAI_API_KEY=sk-your-actual-key-here
+EOF
+```
+
+### Google Gemini (Recommended for Cost)
+
+**Pros:** Free tier (60 req/min), good quality  
+**Cons:** Rate limits on free tier
+
+```bash
+# Get API key from https://makersuite.google.com/app/apikey
+
+# Configure .env
+cat > .env << EOF
+LLM_PROVIDER=google
+LLM_MODEL=gemini-pro
+LLM_VISION_MODEL=gemini-pro-vision
+GOOGLE_API_KEY=your-actual-key-here
+EOF
+```
+
+### Anthropic Claude
+
+**Pros:** Excellent reasoning, 200k context  
+**Cons:** Similar cost to GPT-4
+
+```bash
+# Get API key from https://console.anthropic.com/account/keys
+
+# Configure .env
+cat > .env << EOF
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-3-opus-20240229
+ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
+EOF
+```
+
+### Azure OpenAI (Enterprise)
+
+**Pros:** Enterprise security, SLAs, data residency  
+**Cons:** Requires Azure setup
+
+```bash
+# Setup Azure OpenAI resource in Azure Portal
+# Deploy GPT-4 model and note deployment name
+
+# Configure .env
+cat > .env << EOF
+LLM_PROVIDER=azure
+LLM_MODEL=gpt-4
+AZURE_OPENAI_API_KEY=your-azure-key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+AZURE_OPENAI_DEPLOYMENT=your-deployment-name
+EOF
+```
+
+**📚 For detailed setup instructions, see [LLM_PROVIDER_GUIDE.md](LLM_PROVIDER_GUIDE.md)**
+
+---
+
+## 📦 Installation
 
 ```bash
 # Step 1: Clone the repository
