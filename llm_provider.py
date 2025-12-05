@@ -96,7 +96,7 @@ class OllamaProvider(BaseLLMProvider):
             response = self.session.post(
                 f"{self.base_url}/api/generate",
                 json=payload,
-                timeout=300  # 5 minutes for large models
+                # timeout=500  # 5 minutes for large models
             )
             response.raise_for_status()
             return response.json().get("response", "")
@@ -120,7 +120,7 @@ class OllamaProvider(BaseLLMProvider):
             response = self.session.post(
                 f"{self.base_url}/api/generate",
                 json=payload,
-                timeout=300
+                # timeout=500
             )
             response.raise_for_status()
             return response.json().get("response", "")
