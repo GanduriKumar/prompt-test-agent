@@ -157,7 +157,7 @@ def validate_url(url: str) -> bool:
 
 
 def validate_file_path(file_path: str) -> Path:
-    """Validate and sanitize file paths to prevent path traversal attacks.
+    r"""Validate and sanitize file paths to prevent path traversal attacks.
     
     AI Tool Discovery Metadata:
     - Category: Security Validation
@@ -903,94 +903,53 @@ asyncio.run(run())
 
 
 async def get_interactive_elements(url: str) -> List[Dict]:
-    """Retrieve all interactive elements from a web page for AI agent automation.
-    
-    AI Tool Discovery Metadata:
-    - Category: Web Scraping / UI Analysis
-    - Task: Interactive Element Extraction
-    - Purpose: Extract metadata about all interactive elements (buttons, inputs, links) for test generation
-    - Library: Playwright (async browser automation)
+    """
+    Retrieve all interactive elements from a web page.
     
     Args:
-        url (str): Target web page URL to analyze
-        
-    Returns:
-        List[Dict]: List of element dictionaries, each containing:
-            - tag (str): HTML tag name (lowercase) - "input", "button", "a", "textarea", "select"
-            - type (str|None): Type attribute (for inputs) - "email", "password", "submit", etc.
-            - id (str|None): Element ID attribute
-            - name (str|None): Name attribute
-            - text (str): Visible text content (trimmed, max 100 chars)
-            - placeholder (str|None): Placeholder attribute
-            - ariaLabel (str|None): ARIA label for accessibility
-            - role (str|None): ARIA role attribute
-            
-    Example Output:
-        [
-            {
-                "tag": "input",
-                "type": "email",
-                "id": "email-field",
-                "name": "email",
-                "text": "",
-                "placeholder": "Enter your email",
-                "ariaLabel": "Email address",
-                "role": None
-            },
-            {
-                "tag": "button",
-                "type": "submit",
-                "id": "login-btn",
-                "name": None,
-                "text": "Sign In",
-                "placeholder": None,
-                "ariaLabel": None,
-                "role": "button"
-            }
-        ]
-        
-    Process:
-        1. Validates URL for security
-        2. Launches headless Chromium browser
-        3. Navigates to URL (waits for DOMContentLoaded)
-        4. Executes JavaScript to query DOM
-        5. Extracts metadata from each element
-        6. Closes browser automatically
-        
-    Extracted Element Types:
-        - <a>: Links and navigation
-        - <button>: Buttons and submit controls
-        - <input>: Form input fields
-        - <textarea>: Multi-line text inputs
-        - <select>: Dropdown/select elements
-        
-    Performance:
-        - Headless mode for faster rendering
-        - Text limited to 100 chars per element
-        - Timeout: 30 seconds for page load
-        - Typical execution: 5-10 seconds
-        
-    Use Cases:
-        - Test case generation (functional tests)
-        - UI element discovery for automation
-        - Accessibility auditing
-        - Form analysis and validation
-        - Navigation flow mapping
-        
-    Error Handling:
-        - ValueError: Invalid URL format
-        - Timeout: Page load exceeds 30 seconds
-        - Network errors: DNS failures, connection refused
-        
-    Tool Category: Web Automation, UI Element Discovery, Agent Interaction Mapping
-    """
-    validate_url(url)
+        url: URL to analyze
     
+    Returns:
+        List of element dictionaries
+    """
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)  # Headless for performance
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context(
+            viewport=VIEWPORT,
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        
         try:
-            page = await browser.new_page(viewport=VIEWPORT)
-            await page.goto(url, wait_until='domcontentloaded', timeout=30000)
+            page = await context.new_page()
+            
+            # Try multiple navigation strategies
+            try:
+                # Strategy 1: Normal navigation with longer timeout
+                await page.goto(url, wait_until='domcontentloaded', timeout=30000)
+                
+            except Exception as e1:
+                logging.warning(f"First navigation attempt failed: {e1}")
+                
+                try:
+                    # Strategy 2: Try with networkidle
+                    await page.goto(url, wait_until='networkidle', timeout=30000)
+                    
+                except Exception as e2:
+                    logging.warning(f"Second navigation attempt failed: {e2}")
+                    
+                    # Strategy 3: Force HTTPS if using HTTP
+                    if url.startswith('http://'):
+                        https_url = url.replace('http://', 'https://', 1)
+                        logging.info(f"Retrying with HTTPS: {https_url}")
+                        try:
+                            await page.goto(https_url, wait_until='domcontentloaded', timeout=30000)
+                            url = https_url  # Update URL for future use
+                        except Exception as e3:
+                            logging.error(f"All navigation attempts failed: {e3}")
+                            raise Exception(f"Could not load page: {url}. Try using full HTTPS URL.")
+            
+            # Wait for any dynamic content
+            await page.wait_for_timeout(2000)
             
             # Optimized JavaScript for element extraction
             elements = await page.evaluate("""
@@ -1006,7 +965,7 @@ async def get_interactive_elements(url: str) -> List[Dict]:
                             type: el.getAttribute('type'),
                             id: el.id || null,
                             name: el.getAttribute('name'),
-                            text: (el.innerText || '').trim().substring(0, 100),  // Limit text length
+                            text: (el.innerText || '').trim().substring(0, 100),
                             placeholder: el.getAttribute('placeholder'),
                             ariaLabel: el.getAttribute('aria-label'),
                             role: el.getAttribute('role')
@@ -1017,7 +976,12 @@ async def get_interactive_elements(url: str) -> List[Dict]:
                 }
             """)
             
+            logging.info(f"Extracted {len(elements)} interactive elements from {url}")
             return elements
+            
+        except Exception as e:
+            logging.error(f"Element extraction failed: {e}")
+            raise
         finally:
             await browser.close()
 
@@ -1279,13 +1243,13 @@ def generate_final_output(prompt: str, retry_with_simpler: bool = True) -> str:
         payload = {
             "model": os.getenv("LLM_MODEL", "llama3.2"),
             "prompt": prompt,
-            "stream": False,  # Critical: disable streaming
-            "format": "json",  # Request JSON format
+            "stream": False,
+            "format": "json",
             "options": {
-                "temperature": 0.3,  # Lower = more deterministic
+                "temperature": 0.3,
                 "top_p": 0.9,
-                "num_predict": 4096,  # Maximum tokens to generate
-                "stop": ["```", "}\n\n", "]\n\n", "\n\n\n"]
+                "num_predict": 4096,
+                "stop": ["```", "}\n\n", "]\n\n"]
             }
         }
         
@@ -1295,18 +1259,16 @@ def generate_final_output(prompt: str, retry_with_simpler: bool = True) -> str:
             response = session.post(
                 f"{os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')}/api/generate",
                 json=payload,
-                # timeout=REQUEST_TIMEOUT
+                timeout=REQUEST_TIMEOUT
             )
             response.raise_for_status()
             result = response.json().get("response", "")
             
-            # Validate it's JSON before returning
             if not result.strip().startswith(('{', '[')):
                 logging.warning(f"Response doesn't start with JSON: {result[:100]}...")
                 
                 if retry_with_simpler:
                     logging.info("Retrying with explicit JSON schema...")
-                    # Add JSON schema to prompt
                     enhanced_prompt = f"""{prompt}
 
 CRITICAL: Your response MUST be ONLY the JSON object. Do not include:
@@ -1318,12 +1280,12 @@ CRITICAL: Your response MUST be ONLY the JSON object. Do not include:
 Start your response with {{ and end with }}"""
                     
                     payload["prompt"] = enhanced_prompt
-                    payload["options"]["temperature"] = 0.1  # Even more deterministic
+                    payload["options"]["temperature"] = 0.1
                     
                     response = session.post(
                         f"{os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')}/api/generate",
                         json=payload,
-                        # timeout=REQUEST_TIMEOUT
+                        timeout=REQUEST_TIMEOUT
                     )
                     response.raise_for_status()
                     result = response.json().get("response", "")
@@ -1331,17 +1293,29 @@ Start your response with {{ and end with }}"""
             return result
             
         except requests.exceptions.RequestException as e:
-            logging.error(f"LLM API request failed: {e}")
-            return "{}"  # Return empty JSON on failure
+            logging.error(f"Ollama API request failed: {e}")
+            return "{}"
     
     elif provider == "openai":
         try:
             import openai
             client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             
-            response = client.chat.completions.create(
-                model=os.getenv("LLM_MODEL", "gpt-4-turbo-preview"),
-                messages=[
+            model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
+            
+            # Determine token parameter
+            uses_new_param = any([
+                model.startswith("gpt-4o"),
+                model.startswith("gpt-4-turbo") and "2024" in model,
+                model.startswith("gpt-4.5"),
+                model.startswith("o1"),
+                model.startswith("o3")
+            ])
+            
+            # Build request parameters
+            request_params = {
+                "model": model,
+                "messages": [
                     {
                         "role": "system",
                         "content": "You are a test generation expert. Respond ONLY with valid JSON. No markdown, no explanations."
@@ -1351,21 +1325,164 @@ Start your response with {{ and end with }}"""
                         "content": prompt
                     }
                 ],
-                response_format={"type": "json_object"},  # Enforce JSON mode
-                temperature=0.3,
-                max_tokens=4096
+                "response_format": {"type": "json_object"},
+                "temperature": 0.3
+            }
+            
+            # Add appropriate token limit parameter
+            if uses_new_param:
+                request_params["max_completion_tokens"] = 8192
+            else:
+                request_params["max_completion_tokens"] = 8192
+            
+            response = client.chat.completions.create(**request_params)
+            
+            # Extract content
+            content = response.choices[0].message.content
+            
+            # Check for empty response
+            if not content or len(content.strip()) == 0:
+                logging.error(f"OpenAI returned empty response. Response object: {response}")
+                logging.error(f"Finish reason: {response.choices[0].finish_reason}")
+                
+                # Check finish reason
+                if response.choices[0].finish_reason == "length":
+                    logging.error("Response was truncated due to length limit. Increase max_completion_tokens.")
+                    # Retry with longer limit
+                    if uses_new_param:
+                        request_params["max_completion_tokens"] = 16384
+                    else:
+                        request_params["max_completion_tokens"] = 16384
+                    
+                    logging.info("Retrying with doubled token limit...")
+                    response = client.chat.completions.create(**request_params)
+                    content = response.choices[0].message.content
+                
+                elif response.choices[0].finish_reason == "content_filter":
+                    logging.error("Response was filtered by OpenAI content policy. Try different prompt.")
+                    return "{}"
+                
+                else:
+                    logging.error(f"Unknown issue. Finish reason: {response.choices[0].finish_reason}")
+                    return "{}"
+            
+            return content if content else "{}"
+        
+        except Exception as e:
+            logging.error(f"OpenAI API request failed: {e}")
+            
+            # If it's the max_tokens error, retry with correct parameter
+            if "max_tokens" in str(e) and "max_completion_tokens" in str(e):
+                logging.info("Retrying with max_completion_tokens parameter...")
+                try:
+                    request_params["max_completion_tokens"] = request_params.pop("max_completion_tokens", 4096)
+                    response = client.chat.completions.create(**request_params)
+                    content = response.choices[0].message.content
+                    return content if content else "{}"
+                except Exception as retry_error:
+                    logging.error(f"Retry failed: {retry_error}")
+        
+        return "{}"
+    
+    elif provider == "google":
+        try:
+            import google.generativeai as genai
+            
+            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+            model = genai.GenerativeModel(
+                os.getenv("LLM_MODEL", "gemini-pro"),
+                generation_config={
+                    "temperature": 0.3,
+                    "max_output_tokens": 4096,
+                }
             )
+            
+            enhanced_prompt = f"""{prompt}
+
+IMPORTANT: Respond with ONLY valid JSON. No markdown, no explanations."""
+            
+            response = model.generate_content(enhanced_prompt)
+            return response.text
+            
+        except Exception as e:
+            logging.error(f"Google API request failed: {e}")
+            return "{}"
+    
+    elif provider == "anthropic":
+        try:
+            import anthropic
+            
+            client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+            
+            response = client.messages.create(
+                model=os.getenv("LLM_MODEL", "claude-3-sonnet-20240229"),
+                max_tokens=4096,  # Claude uses max_tokens (not max_completion_tokens)
+                temperature=0.3,
+                system="You are a test generation expert. Respond ONLY with valid JSON. No markdown, no explanations.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            )
+            
+            return response.content[0].text
+            
+        except Exception as e:
+            logging.error(f"Anthropic API request failed: {e}")
+            return "{}"
+    
+    elif provider == "azure":
+        try:
+            import openai
+            
+            client = openai.AzureOpenAI(
+                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+                api_version=os.getenv("AZURE_API_VERSION", "2024-02-15-preview"),
+                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
+            )
+            
+            model = os.getenv("LLM_MODEL", "gpt-4")
+            
+            # Azure deployments may use either parameter depending on model version
+            uses_new_param = any([
+                model.startswith("gpt-4o"),
+                model.startswith("gpt-4-turbo"),
+                "2024" in model
+            ])
+            
+            request_params = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a test generation expert. Respond ONLY with valid JSON. No markdown, no explanations."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.3
+            }
+            
+            if uses_new_param:
+                request_params["max_completion_tokens"] = 4096
+            else:
+                request_params["max_tokens"] = 4096
+            
+            response = client.chat.completions.create(**request_params)
             
             return response.choices[0].message.content
             
         except Exception as e:
-            logging.error(f"OpenAI API request failed: {e}")
+            logging.error(f"Azure OpenAI API request failed: {e}")
             return "{}"
     
     else:
-        # For other providers, use the existing implementation
-        # (Add similar enhancements for Google, Anthropic, Azure)
-        logging.warning(f"Provider {provider} may need JSON formatting enhancements")
+        logging.error(f"Unknown LLM provider: {provider}")
         return "{}"
 
 
@@ -1587,7 +1704,7 @@ MODEL_CONFIGS = {
             "temperature": 0.3,
             "top_p": 0.9,
             "num_predict": 4096,
-            "stop": ["```", "}\n\n", "]\n\n", "\n\n\n"]
+            "stop": ["```", "}\n\n", "]\n\n"]
         },
         "mistral": {
             "temperature": 0.2,

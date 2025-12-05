@@ -2,6 +2,7 @@ import asyncio
 import logging
 import json
 from typing import Dict, List
+from urllib.parse import urlparse
 
 from cua_tools import generate_functional_tests, generate_nfr_tests
 
@@ -59,26 +60,48 @@ def validate_test_structure(tests: Dict[str, List[Dict]]) -> bool:
 
 
 async def generate_all_tests(url: str, business_context: str) -> Dict[str, List[Dict]]:
-    def generate_all_tests(url: str, business_context: str) -> Dict[str, List[Dict]]:
-        """
-        Asynchronously generates both functional and non-functional requirement (NFR) tests for a given URL.
-        This function runs two test generation tasks concurrently: one for functional tests and another for NFR tests.
-        It handles potential exceptions during the test generation process and ensures that the returned results are 
-        in the form of lists, even in the case of errors.
-        Args:
-            url (str): The URL for which tests are to be generated.
-            business_context (str): The business context that may influence test generation.
-        Returns:
-            Dict[str, List[Dict]]: A dictionary containing two keys:
-                - "functional_tests": A list of generated functional tests.
-                - "nfr_tests": A list of generated non-functional requirement tests.
-        Logs:
-            - Information about the start of the test generation process.
-            - Errors encountered during the generation of functional or NFR tests.
-            - The number of tests generated for both functional and NFR categories.
-        """
-    
+    """
+    Asynchronously generates both functional and non-functional requirement (NFR) tests for a given URL.
+    This function runs two test generation tasks concurrently: one for functional tests and another for NFR tests.
+    It handles potential exceptions during the test generation process and ensures that the returned results are 
+    in the form of lists, even in the case of errors.
+    Args:
+    url (str): The URL for which tests are to be generated.
+    business_context (str): The business context that may influence test generation.
+    Returns:
+    Dict[str, List[Dict]]: A dictionary containing two keys:
+        - "functional_tests": A list of generated functional tests.
+        - "nfr_tests": A list of generated non-functional requirement tests.
+    Logs:
+    - Information about the start of the test generation process.
+    - Errors encountered during the generation of functional or NFR tests.
+    - The number of tests generated for both functional and NFR categories.
+    """
     logging.info(f"Starting test generation for URL: {url}")
+    
+    # Pre-validate that we can access the URL
+    try:
+        from cua_tools import get_interactive_elements
+        logging.info("Testing page accessibility...")
+        elements = await get_interactive_elements(url)
+        
+        if not elements or len(elements) == 0:
+            logging.warning(f"No interactive elements found on {url}")
+            logging.warning("This may indicate:")
+            logging.warning("  1. Page requires JavaScript (loaded but not executed)")
+            logging.warning("  2. Page has no forms/buttons/links")
+            logging.warning("  3. Page uses shadow DOM or iframes")
+            logging.info("Proceeding with test generation anyway...")
+        else:
+            logging.info(f"Found {len(elements)} interactive elements")
+            
+    except Exception as e:
+        logging.error(f"Failed to access page: {e}")
+        logging.error("Cannot generate tests without accessing the page.")
+        return {
+            "functional_tests": [],
+            "nfr_tests": []
+        }
     
     # Run both test generation tasks concurrently
     func_tests_task = generate_functional_tests(url, business_context)
@@ -114,6 +137,45 @@ async def generate_all_tests(url: str, business_context: str) -> Dict[str, List[
     }
 
 
+def normalize_url(url: str) -> str:
+    """
+    Normalize and fix common URL issues.
+    
+    Args:
+        url: User-provided URL
+    
+    Returns:
+        Normalized URL with proper protocol
+    """
+    url = url.strip()
+    
+    # Remove trailing slashes
+    url = url.rstrip('/')
+    
+    # Add protocol if missing
+    if not url.startswith(('http://', 'https://')):
+        url = f"https://{url}"
+    
+    # Force HTTPS for known sites that require it
+    known_https_sites = [
+        'google.com',
+        'facebook.com',
+        'twitter.com',
+        'github.com',
+        'linkedin.com',
+        'microsoft.com'
+    ]
+    
+    if url.startswith('http://'):
+        for site in known_https_sites:
+            if site in url:
+                url = url.replace('http://', 'https://', 1)
+                logging.info(f"Forcing HTTPS for {site}: {url}")
+                break
+    
+    return url
+
+
 def main():
     """
     Main function to generate tests for a given URL.
@@ -133,21 +195,32 @@ def main():
     Returns:
         None
     """
-   
     url = input("Enter the URL to open: ").strip()
     
     if not url:
         logging.error("URL cannot be empty")
         return
     
-    if not url.startswith(('http://', 'https://')):
-        logging.warning("URL doesn't start with http:// or https://, adding https://")
-        url = f"https://{url}"
+    # Normalize URL
+    url = normalize_url(url)
+    logging.info(f"Using URL: {url}")
     
-    business_context = "Search website"
+    business_context = "Web application under test"
     
     # Generate tests
-    all_tests = asyncio.run(generate_all_tests(url, business_context))
+    try:
+        all_tests = asyncio.run(generate_all_tests(url, business_context))
+    except KeyboardInterrupt:
+        logging.info("Test generation cancelled by user")
+        return
+    except Exception as e:
+        logging.error(f"Test generation failed with error: {e}")
+        logging.error("Common issues:")
+        logging.error("  1. URL is not accessible (firewall, VPN, etc.)")
+        logging.error("  2. Site requires authentication")
+        logging.error("  3. Site blocks automated browsers")
+        logging.error("  4. LLM API key is invalid or quota exceeded")
+        return
     
     # Validate structure
     if not validate_test_structure(all_tests):
@@ -157,6 +230,11 @@ def main():
     total_tests = len(all_tests['functional_tests']) + len(all_tests['nfr_tests'])
     if total_tests == 0:
         logging.error("No tests were generated. Check logs for errors.")
+        logging.info("Troubleshooting steps:")
+        logging.info("  1. Verify the URL is accessible in a browser")
+        logging.info("  2. Try using full HTTPS URL (e.g., https://www.google.com)")
+        logging.info("  3. Check your LLM provider API key and quota")
+        logging.info("  4. Enable debug logging: logging.basicConfig(level=logging.DEBUG)")
         logging.info("Saving empty test file as placeholder")
     
     # Write to JSON file
