@@ -24,7 +24,7 @@ The Prompt Test Agent now supports **multiple LLM providers**, giving you flexib
 | `llm_provider.py` | Multi-provider LLM integration module |
 | `LLM_PROVIDER_GUIDE.md` | Detailed setup guide for all providers |
 | `QUICK_REFERENCE.md` | Quick commands and troubleshooting |
-| `.env.example` | Configuration examples for all providers |
+| `.env` | Configuration for all providers |
 | `test_llm_providers.py` | Test script to verify your setup |
 | `MULTI_PROVIDER_SUMMARY.md` | This file |
 
